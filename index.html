@@ -6,7 +6,7 @@
   <style>
     body { font-family: Arial, sans-serif; margin: 0; padding: 0; background:#f5f5f5; }
     header { background:#222; color:#fff; padding:15px; text-align:center; }
-    main { max-width:800px; margin:20px auto; background:#fff; padding:20px; border-radius:8px; }
+    main { max-width:800px; margin:20px auto; background:#fff; padding:20px; border-radius:8px; display: none; }
     h2 { margin-top:0; }
     .section { margin-bottom:25px; border-bottom:1px solid #ddd; padding-bottom:15px; }
     label { display:block; margin:8px 0 4px; }
@@ -15,13 +15,28 @@
     ul { padding-left:18px; }
     li { margin-bottom:12px; }
     .meta { font-size:12px; color:#666; }
+    
+    #passwordOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f5f5f5; display: flex; justify-content: center; align-items: center; z-index: 9999; }
+    .password-box { background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; max-width: 350px; width: 90%; }
+    .password-box input { margin: 15px 0; text-align: center; font-size: 18px; letter-spacing: 3px; }
+    .password-box button { width: 100%; padding: 10px; background: #222; color: #fff; border: none; font-size: 16px; border-radius: 4px; }
   </style>
 </head>
 <body>
+
+<div id="passwordOverlay">
+  <div class="password-box">
+    <h3>👨‍👩‍👧‍👦 가족 메모장 보호</h3>
+    <p style="font-size: 14px; color: #666; margin: 0;">우리 가족 전용 암호를 입력해 주세요.</p>
+    <input id="pwdInput" type="password" placeholder="비밀번호 입력" onkeyup="if(window.event.keyCode==13){checkPassword()}">
+    <button onclick="checkPassword()">입력 완료</button>
+  </div>
+</div>
+
 <header>
   <h1>우리 가족 실시간 공유 메모장 👨‍👩‍👧‍👦</h1>
 </header>
-<main>
+<main id="memoMain">
   <section class="section">
     <h2>항목 등록 / 수정</h2>
     <label>제목</label>
@@ -42,7 +57,9 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
   import { getDatabase, ref, push, update, remove, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-  // 아까 확인하셨던 선생님의 파이어베이스 고유 식별 주소입니다!
+  // 🔑 여기에 사용할 우리 가족만의 비밀번호를 적어주세요! (예: "1234")
+  const FAMILY_PASSWORD = "Z1234Z1234@"; 
+
   const firebaseConfig = {
     apiKey: "AIzaSyD8hMqiHc43UppvEh3IaqIAo4qlbuNl_so",
     authDomain: "family-memo-9c3dc.firebaseapp.com",
@@ -53,7 +70,28 @@
     appId: "1:558231618973:web:8eba231ac20a8bd38cdb74"
   };
 
-  // 파이어베이스 초기화
+  // 암호 체크 함수 (localStorage를 써서 기기 자체에 반영구적으로 로그인 상태 유지)
+  window.checkPassword = function() {
+    const inputPwd = document.getElementById('pwdInput').value;
+    if (inputPwd === FAMILY_PASSWORD) {
+      document.getElementById('passwordOverlay').style.display = 'none';
+      document.getElementById('memoMain').style.display = 'block';
+      
+      // 창을 닫아도 기억하도록 변경 완료!
+      localStorage.setItem('family_memo_auth', 'passed');
+    } else {
+      alert('비밀번호가 틀렸습니다! 우리 가족만 이용 가능합니다.');
+      document.getElementById('pwdInput').value = '';
+      document.getElementById('pwdInput').focus();
+    }
+  }
+
+  // 이전에 비밀번호를 맞췄던 기기라면 바로 자동 통과!
+  if (localStorage.getItem('family_memo_auth') === 'passed') {
+    document.getElementById('passwordOverlay').style.display = 'none';
+    document.getElementById('memoMain').style.display = 'block';
+  }
+
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
   const itemsRef = ref(db, 'family_memos');
@@ -67,7 +105,6 @@
          + `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   }
 
-  // 데이터 저장 함수
   window.saveItem = function() {
     const titleEl = document.getElementById('titleInput');
     const contentEl = document.getElementById('contentInput');
@@ -100,7 +137,6 @@
     document.getElementById('editInfo').textContent = '';
   }
 
-  // 실시간 데이터 받아오기
   onValue(itemsRef, (snapshot) => {
     const listEl = document.getElementById('itemList');
     listEl.innerHTML = '';
@@ -131,13 +167,11 @@
     }
   });
 
-  // 삭제 함수
   window.deleteItem = function(key) {
     if (!confirm('삭제할까요?')) return;
     remove(ref(db, `family_memos/${key}`));
   }
 
-  // 수정 준비 함수
   window.editItem = function(key) {
     const item = items.find(i => i.key === key);
     if (item) {
