@@ -42,7 +42,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
   import { getDatabase, ref, push, update, remove, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-  // 보내주신 소중한 파이어베이스 열쇠 정보를 완벽하게 입력했습니다!
+  // 아까 확인하셨던 선생님의 파이어베이스 고유 식별 주소입니다!
   const firebaseConfig = {
     apiKey: "AIzaSyD8hMqiHc43UppvEh3IaqIAo4qlbuNl_so",
     authDomain: "family-memo-9c3dc.firebaseapp.com",
@@ -67,7 +67,7 @@
          + `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   }
 
-  // 데이터 저장 함수 (파이어베이스 구글 창고로 직행)
+  // 데이터 저장 함수
   window.saveItem = function() {
     const titleEl = document.getElementById('titleInput');
     const contentEl = document.getElementById('contentInput');
@@ -80,7 +80,6 @@
     }
 
     if (editingKey === null) {
-      // 새 메모 추가
       push(itemsRef, {
         title,
         content,
@@ -88,7 +87,6 @@
         updatedAt: null
       });
     } else {
-      // 기존 메모 수정
       update(ref(db, `family_memos/${editingKey}`), {
         title,
         content,
@@ -102,7 +100,7 @@
     document.getElementById('editInfo').textContent = '';
   }
 
-  // 데이터 변경 감지 및 실시간 화면 리스트 갱신
+  // 실시간 데이터 받아오기
   onValue(itemsRef, (snapshot) => {
     const listEl = document.getElementById('itemList');
     listEl.innerHTML = '';
@@ -114,7 +112,6 @@
         items.push({ key, ...data[key] });
       });
 
-      // 최신 등록 순서가 맨 위로 올라오도록 정렬
       const reversedItems = [...items].reverse();
 
       reversedItems.forEach((item) => {
@@ -134,13 +131,13 @@
     }
   });
 
-  // 삭제 처리
+  // 삭제 함수
   window.deleteItem = function(key) {
     if (!confirm('삭제할까요?')) return;
     remove(ref(db, `family_memos/${key}`));
   }
 
-  // 수정 대기 상태 전환
+  // 수정 준비 함수
   window.editItem = function(key) {
     const item = items.find(i => i.key === key);
     if (item) {
