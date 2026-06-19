@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>박현 온라인 서비스 앱</title>
+  <title>우리 가족 실시간 메모장</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 0; padding: 0; background:#f5f5f5; }
     header { background:#222; color:#fff; padding:15px; text-align:center; }
@@ -19,13 +19,13 @@
 </head>
 <body>
 <header>
-  <h1>온라인 박현 서비스 앱 (완전 버전)</h1>
+  <h1>우리 가족 실시간 공유 메모장 👨‍👩‍👧‍👦</h1>
 </header>
 <main>
   <section class="section">
     <h2>항목 등록 / 수정</h2>
     <label>제목</label>
-    <input id="titleInput" type="text" placeholder="예: 고객 이름, 작업 제목 등">
+    <input id="titleInput" type="text" placeholder="예: 장보기 목록, 가족 공지 등">
     <label>내용</label>
     <textarea id="contentInput" rows="3" placeholder="상세 내용 입력"></textarea>
     <button onclick="saveItem()">저장</button>
@@ -38,9 +38,28 @@
   </section>
 </main>
 
-<script>
-  let items = JSON.parse(localStorage.getItem("items") || "[]");
-  let editingIndex = null;
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import { getDatabase, ref, push, update, remove, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+  // ⚠️ 중요: 이 부분을 파이어베이스에서 복사한 본인의 설정 값으로 변경해 주세요!
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+    databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT_ID.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+
+  // 파이어베이스 초기화 (로그인 절차 없음)
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const itemsRef = ref(db, 'family_memos');
+
+  let items = []; 
+  let editingKey = null; 
 
   function formatDate(d) {
     const pad = n => (n < 10 ? '0' + n : n);
@@ -48,11 +67,8 @@
          + `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   }
 
-  function saveToStorage() {
-    localStorage.setItem("items", JSON.stringify(items));
-  }
-
-  function saveItem() {
+  // 데이터 저장 함수
+  window.saveItem = function() {
     const titleEl = document.getElementById('titleInput');
     const contentEl = document.getElementById('contentInput');
     const title = titleEl.value.trim();
@@ -63,70 +79,74 @@
       return;
     }
 
-    if (editingIndex === null) {
-      items.push({
+    if (editingKey === null) {
+      push(itemsRef, {
         title,
         content,
-        createdAt: new Date(),
+        createdAt: new Date().toISOString(),
         updatedAt: null
       });
     } else {
-      items[editingIndex].title = title;
-      items[editingIndex].content = content;
-      items[editingIndex].updatedAt = new Date();
+      update(ref(db, `family_memos/${editingKey}`), {
+        title,
+        content,
+        updatedAt: new Date().toISOString()
+      });
     }
 
-    saveToStorage();
     titleEl.value = '';
     contentEl.value = '';
-    editingIndex = null;
+    editingKey = null;
     document.getElementById('editInfo').textContent = '';
-    renderList();
   }
 
-  // 이 함수에서 원본 인덱스를 유지하며 최신순으로 렌더링하도록 수정했습니다.
-  function renderList() {
+  // 실시간 데이터 받아오기
+  onValue(itemsRef, (snapshot) => {
     const listEl = document.getElementById('itemList');
     listEl.innerHTML = '';
+    items = [];
 
-    // 원본 배열을 복사한 뒤 역순으로 뒤집어 최신 글이 먼저 나오게 합니다.
-    // .map을 통해 원본 고유 index를 미리 묶어두었기 때문에 수정/삭제 에러가 나지 않습니다.
-    const reversedItems = items
-      .map((item, index) => ({ item, index }))
-      .reverse();
+    const data = snapshot.val();
+    if (data) {
+      Object.keys(data).forEach(key => {
+        items.push({ key, ...data[key] });
+      });
 
-    reversedItems.forEach(({ item, index }) => {
-      const li = document.createElement('li');
-      const created = formatDate(new Date(item.createdAt));
-      const updated = item.updatedAt ? ` / 수정: ${formatDate(new Date(item.updatedAt))}` : '';
+      const reversedItems = [...items].reverse();
 
-      li.innerHTML = `
-        <strong>${item.title}</strong><br>
-        ${item.content}<br>
-        <span class="meta">생성: ${created}${updated}</span><br>
-        <button onclick="editItem(${index})">수정</button>
-        <button onclick="deleteItem(${index})">삭제</button>
-      `;
-      listEl.appendChild(li);
-    });
-  }
+      reversedItems.forEach((item) => {
+        const li = document.createElement('li');
+        const created = formatDate(new Date(item.createdAt));
+        const updated = item.updatedAt ? ` / 수정: ${formatDate(new Date(item.updatedAt))}` : '';
 
-  function deleteItem(index) {
+        li.innerHTML = `
+          <strong>${item.title}</strong><br>
+          ${item.content}<br>
+          <span class="meta">생성: ${created}${updated}</span><br>
+          <button onclick="editItem('${item.key}')">수정</button>
+          <button onclick="deleteItem('${item.key}')">삭제</button>
+        `;
+        listEl.appendChild(li);
+      });
+    }
+  });
+
+  // 삭제 함수
+  window.deleteItem = function(key) {
     if (!confirm('삭제할까요?')) return;
-    items.splice(index, 1);
-    saveToStorage();
-    renderList();
+    remove(ref(db, `family_memos/${key}`));
   }
 
-  function editItem(index) {
-    const item = items[index];
-    document.getElementById('titleInput').value = item.item ? item.item.title : item.title;
-    document.getElementById('contentInput').value = item.item ? item.item.content : item.content;
-    editingIndex = index;
-    document.getElementById('editInfo').textContent = `지금 ${index+1}번 항목을 수정 중`;
+  // 수정 준비 함수
+  window.editItem = function(key) {
+    const item = items.find(i => i.key === key);
+    if (item) {
+      document.getElementById('titleInput').value = item.title;
+      document.getElementById('contentInput').value = item.content;
+      editingKey = key;
+      document.getElementById('editInfo').textContent = `지금 선택한 항목을 수정 중...`;
+    }
   }
-
-  renderList();
 </script>
 </body>
 </html>
