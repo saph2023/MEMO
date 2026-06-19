@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>우리 가족 실시간 메모장</title>
+  <title>우리 가족 실시간 공유 메모장</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 0; padding: 0; background:#f5f5f5; }
     header { background:#222; color:#fff; padding:15px; text-align:center; }
@@ -42,18 +42,18 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
   import { getDatabase, ref, push, update, remove, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-  // ⚠️ 중요: 이 부분을 파이어베이스에서 복사한 본인의 설정 값으로 변경해 주세요!
+  // 보내주신 소중한 파이어베이스 열쇠 정보를 완벽하게 입력했습니다!
   const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-    databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT_ID.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    apiKey: "AIzaSyD8hMqiHc43UppvEh3IaqIAo4qlbuNl_so",
+    authDomain: "family-memo-9c3dc.firebaseapp.com",
+    databaseURL: "https://family-memo-9c3dc-default-rtdb.firebaseio.com",
+    projectId: "family-memo-9c3dc",
+    storageBucket: "family-memo-9c3dc.firebasestorage.app",
+    messagingSenderId: "558231618973",
+    appId: "1:558231618973:web:8eba231ac20a8bd38cdb74"
   };
 
-  // 파이어베이스 초기화 (로그인 절차 없음)
+  // 파이어베이스 초기화
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
   const itemsRef = ref(db, 'family_memos');
@@ -67,7 +67,7 @@
          + `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   }
 
-  // 데이터 저장 함수
+  // 데이터 저장 함수 (파이어베이스 구글 창고로 직행)
   window.saveItem = function() {
     const titleEl = document.getElementById('titleInput');
     const contentEl = document.getElementById('contentInput');
@@ -80,6 +80,7 @@
     }
 
     if (editingKey === null) {
+      // 새 메모 추가
       push(itemsRef, {
         title,
         content,
@@ -87,6 +88,7 @@
         updatedAt: null
       });
     } else {
+      // 기존 메모 수정
       update(ref(db, `family_memos/${editingKey}`), {
         title,
         content,
@@ -100,7 +102,7 @@
     document.getElementById('editInfo').textContent = '';
   }
 
-  // 실시간 데이터 받아오기
+  // 데이터 변경 감지 및 실시간 화면 리스트 갱신
   onValue(itemsRef, (snapshot) => {
     const listEl = document.getElementById('itemList');
     listEl.innerHTML = '';
@@ -112,6 +114,7 @@
         items.push({ key, ...data[key] });
       });
 
+      // 최신 등록 순서가 맨 위로 올라오도록 정렬
       const reversedItems = [...items].reverse();
 
       reversedItems.forEach((item) => {
@@ -131,13 +134,13 @@
     }
   });
 
-  // 삭제 함수
+  // 삭제 처리
   window.deleteItem = function(key) {
     if (!confirm('삭제할까요?')) return;
     remove(ref(db, `family_memos/${key}`));
   }
 
-  // 수정 준비 함수
+  // 수정 대기 상태 전환
   window.editItem = function(key) {
     const item = items.find(i => i.key === key);
     if (item) {
