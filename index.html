@@ -7,6 +7,7 @@
     
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
 
     <style>
         body {
@@ -78,7 +79,7 @@
             color: #ffffff;
         }
 
-        /* [기존 양식] 메모장 본문 및 내용 구역 */
+        /* [기존 양식] 메모장 본문 영역 */
         .memo-container {
             display: none;
             width: 90%;
@@ -91,24 +92,33 @@
             margin-bottom: 5px;
         }
         
-        /* 메모 및 그림 주소 입력창 */
+        /* 📸 이미지 파일 선택 및 메모 등록 구역 스타일 */
         .input-box {
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 12px;
             margin: 25px 0;
-        }
-        .input-box input {
-            padding: 15px;
+            background-color: #222;
+            padding: 20px;
             border-radius: 8px;
+        }
+        .input-box input[type="text"] {
+            padding: 15px;
+            border-radius: 6px;
             border: none;
             background-color: #333;
             color: white;
             font-size: 16px;
         }
+        /* 파일 선택창 스타일 */
+        .input-box input[type="file"] {
+            color: #aaa;
+            font-size: 14px;
+            padding: 5px 0;
+        }
         .input-box button {
             padding: 15px;
-            border-radius: 8px;
+            border-radius: 6px;
             border: none;
             background-color: #e50914;
             color: white;
@@ -120,7 +130,7 @@
             background-color: #b81d24;
         }
 
-        /* 메모 리스트 출력 공간 */
+        /* 메모 리스트 출력 */
         .memo-list {
             background-color: #222;
             padding: 20px;
@@ -147,7 +157,7 @@
             line-height: 1.5;
         }
         
-        /* 🖼️ 예전 폼의 그림 출력 스타일 유지 */
+        /* 🖼️ 화면에 출력되는 이미지 스타일 */
         .memo-image {
             max-width: 100%;
             border-radius: 6px;
@@ -155,7 +165,7 @@
             display: block;
         }
 
-        /* 넷플릭스 스타일 작성자 배지 양식 */
+        /* 작성자 배지 양식 유지 */
         .author-badge { 
             padding: 3px 8px; 
             border-radius: 4px; 
@@ -215,8 +225,7 @@
     
     <div class="input-box">
         <input type="text" id="memoInput" placeholder="가족에게 남길 메모 내용을 입력하세요...">
-        <input type="text" id="imageInput" placeholder="올릴 그림(이미지)의 직접 링크 주소를 입력하세요 (선택)...">
-        <button onclick="saveMemo()">메모 등록하기</button>
+        <input type="file" id="fileInput" accept="image/*"> <button id="submitBtn" onclick="saveMemoWithImage()">메모 등록하기</button>
     </div>
 
     <div class="memo-list" id="memoListArea">
@@ -225,94 +234,18 @@
 </div>
 
 <script>
-    // 🔗 파이어베이스 데이터베이스 정보 연결
+    // 🔗 파이어베이스 연결 정보 세팅
     const firebaseConfig = {
-        databaseURL: "https://family-memo-9c3dc-default-rtdb.firebaseio.com"
+        databaseURL: "https://family-memo-9c3dc-default-rtdb.firebaseio.com",
+        storageBucket: "family-memo-9c3dc.appspot.com" // ◀ 스토리지 버킷 주소 자동 연동
     };
     
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
+    const storage = firebase.storage(); // 스토리지 기능 정의
 
-    let currentWriter = "";
+    let currentWriter = ""; 
 
-    // 프로필 입장 함수
     function enterMemoApp(name) {
-        currentWriter = name;
-        
-        document.getElementById('loginScreen').style.display = 'none';
-        document.getElementById('memoScreen').style.display = 'block';
-        document.getElementById('welcomeMessage').innerText = "❤️ " + name + " 님의 가족 메모장";
-        
-        // 실시간 동기화 호출
-        loadMemos();
-    }
-
-    // 메모와 이미지 주소를 함께 파이어베이스에 저장하는 함수
-    function saveMemo() {
-        const memoInput = document.getElementById('memoInput');
-        const imageInput = document.getElementById('imageInput');
-        
-        const text = memoInput.value.trim();
-        const imgUrl = imageInput.value.trim();
-        
-        if (text === "" && imgUrl === "") return; // 둘 다 빈칸이면 무시
-
-        database.ref('memos').push({
-            writer: currentWriter,
-            content: text,
-            imageUrl: imgUrl, // 포스트이미지 등에서 가져온 그림 주소 저장
-            timestamp: Date.now()
-        });
-
-        memoInput.value = ""; 
-        imageInput.value = ""; 
-    }
-
-    // ⭐ [핵심 변경] 최신 내용이 무조건 맨 위로 올라오게 데이터를 로드하는 함수
-    function loadMemos() {
-        database.ref('memos').on('value', (snapshot) => {
-            const listArea = document.getElementById('memoListArea');
-            listArea.innerHTML = ""; 
-
-            const data = snapshot.val();
-            
-            if (!data) {
-                listArea.innerHTML = '<div class="no-memo">아직 작성된 메모가 없습니다.</div>';
-                return;
-            }
-
-            // 실시간 데이터를 하나씩 꺼내어 화면에 추가
-            Object.keys(data).forEach((key) => {
-                const memo = data[key];
-                
-                const itemDiv = document.createElement('div');
-                itemDiv.className = 'memo-item';
-                
-                // 그림 주소(imageUrl)가 등록되어 있으면 img 태그를 생성하고, 없으면 공백 처리
-                const imgTag = memo.imageUrl ? `<img src="${memo.imageUrl}" class="memo-image" alt="가족 업로드 이미지">` : '';
-                
-                itemDiv.innerHTML = `
-                    <div class="memo-header">
-                        <span class="author-badge badge-${memo.writer}">${memo.writer}</span>
-                        <button class="delete-btn" onclick="deleteMemo('${key}')">❌</button>
-                    </div>
-                    <div class="memo-text">${memo.content}</div>
-                    ${imgTag}
-                `;
-                
-                // 💡 [insertBefore] 명령을 사용하여 새로운(최신) 메모가 리스트의 맨 위(첫 번째 위치)로 가도록 강제 정렬합니다.
-                listArea.insertBefore(itemDiv, listArea.firstChild);
-            });
-        });
-    }
-
-    // 메모 삭제 처리
-    function deleteMemo(key) {
-        if (confirm("이 메모를 정말 삭제하시겠습니까?")) {
-            database.ref('memos/' + key).remove();
-        }
-    }
-</script>
-
-</body>
-</html>
+        currentWriter = name; 
+        document.getElementById('loginScreen').style.display
