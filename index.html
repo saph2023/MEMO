@@ -16,16 +16,16 @@
             font-family: 'Noto Sans KR', sans-serif;
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: flex-start;
             min-height: 100vh;
             margin: 0;
-            padding-top: 40px; /* 상단 여백 최소화 */
+            padding-top: 40px;
             box-sizing: border-box;
         }
         
-        /* 📊 [수정] 화면 맨 위 오른쪽 사이드에 딱 고정되는 스토리지 바 */
+        /* 📊 [우측 상단 사이드 고정] 스토리지 바 */
         .fixed-storage-header {
-            display: none; /* 로그인 전에는 숨김 */
+            display: none;
             position: fixed;
             top: 15px;
             right: 20px;
@@ -36,7 +36,7 @@
             border-radius: 8px;
             box-sizing: border-box;
             z-index: 9999;
-            width: 280px; /* 사이드에 알맞은 아담한 크기 */
+            width: 280px;
         }
         .storage-flex-container {
             display: flex;
@@ -53,10 +53,9 @@
             color: #aaa;
             font-weight: bold;
         }
-        /* 용량 게이지 바 디자인 */
         .progress-container {
             width: 100%;
-            height: 12px; /* 깔끔하게 얇은 두께로 변경 */
+            height: 12px;
             background-color: #222;
             border-radius: 6px;
             position: relative;
@@ -88,9 +87,74 @@
             color: #aaa;
         }
 
+        /* 📅 [신규] 왼쪽 사이드 고정 달력 영역 */
+        .fixed-calendar-sidebar {
+            display: none; /* 로그인 전 숨김 */
+            position: fixed;
+            top: 15px;
+            left: 20px;
+            background-color: #222;
+            border: 1px solid #444;
+            padding: 15px;
+            border-radius: 8px;
+            width: 260px;
+            box-sizing: border-box;
+            z-index: 9998;
+        }
+        .calendar-sidebar-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #aaa;
+            margin-top: 0;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .calendar-sidebar-title button {
+            background: #333;
+            border: 1px solid #555;
+            color: #fff;
+            padding: 2px 6px;
+            font-size: 11px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .calendar-sidebar-title button:hover {
+            background: #e50914;
+            border-color: #e50914;
+        }
+        .fixed-calendar-sidebar input[type="date"] {
+            width: 100%;
+            padding: 8px;
+            background-color: #333;
+            border: 1px solid #444;
+            color: white;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+            outline: none;
+        }
+        .filter-status {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #ff6b6b;
+            display: none;
+        }
+
+        /* 메인 레이아웃 구성 */
+        .main-wrapper {
+            width: 90%;
+            max-width: 600px;
+            margin: 0 auto;
+            padding-bottom: 5px;
+        }
+
         /* 로그인 / 프로필 선택 화면 */
         .login-container {
             text-align: center;
+            margin-top: 10vh;
+            width: 100%;
         }
         h1 {
             font-size: 44px;
@@ -149,10 +213,8 @@
         /* 메모장 본문 영역 */
         .memo-container {
             display: none;
-            width: 90%;
-            max-width: 600px;
             text-align: center;
-            padding: 20px 0;
+            width: 100%;
         }
         .welcome-title {
             font-size: 32px;
@@ -254,6 +316,30 @@
             display: block;
         }
 
+        /* 날짜 시간 정보 및 수정 버튼 구역 스타일 */
+        .memo-info-line {
+            margin-top: 12px;
+            font-size: 12px;
+            color: #aaa;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid #444;
+            padding-top: 8px;
+        }
+        .edit-action-btn {
+            background: none;
+            border: none;
+            color: #64b5f6;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 0;
+            text-decoration: underline;
+        }
+        .edit-action-btn:hover {
+            color: #2196f3;
+        }
+
         /* 넷플릭스 스타일 작성자 배지 */
         .author-badge { 
             padding: 3px 8px; 
@@ -280,6 +366,24 @@
             text-align: center;
             margin-top: 80px;
         }
+
+        /* 화면이 좁은 모바일일 때 사이드바 처리 */
+        @media (max-width: 1200px) {
+            body {
+                flex-direction: column;
+                align-items: center;
+                padding-top: 20px;
+            }
+            .fixed-storage-header, .fixed-calendar-sidebar {
+                position: static;
+                width: 100%;
+                max-width: 600px;
+                margin: 0 auto 15px auto;
+            }
+            .login-container {
+                margin-top: 5vh;
+            }
+        }
     </style>
 </head>
 <body>
@@ -299,49 +403,62 @@
     </div>
 </div>
 
-<div class="login-container" id="loginScreen">
-    <h1>우리 가족 메모장 로그인</h1>
-    <div class="subtitle">사용하실 프로필을 선택해 주세요.</div>
-
-    <div class="profile-list">
-        <div class="profile-card" onclick="enterMemoApp('아빠')">
-            <div class="avatar-box papa">👨</div>
-            <div class="profile-name">아빠</div>
-        </div>
-        <div class="profile-card" onclick="enterMemoApp('엄마')">
-            <div class="avatar-box mama">👩</div>
-            <div class="profile-name">엄마</div>
-        </div>
-        <div class="profile-card" onclick="enterMemoApp('아들1')">
-            <div class="avatar-box son1">👦</div>
-            <div class="profile-name">아들1</div>
-        </div>
-        <div class="profile-card" onclick="enterMemoApp('아들2')">
-            <div class="avatar-box son2">🧑</div>
-            <div class="profile-name">아들2</div>
-        </div>
+<div class="fixed-calendar-sidebar" id="fixedCalendarSidebar">
+    <div class="calendar-sidebar-title">
+        <span>📅 날짜별 작업 검색</span>
+        <button onclick="clearDateFilter()">전체보기</button>
     </div>
+    <input type="date" id="calendarFilterInput" onchange="filterMemosByDate()">
+    <div id="filterStatusText" class="filter-status">선택된 날짜 보기 중</div>
 </div>
 
-<div class="memo-container" id="memoScreen">
-    <h2 class="welcome-title" id="welcomeMessage">❤️ 가족 메모장</h2>
-    <p style="color: #aaa; margin-bottom: 20px;">우리 가족이 함께 공유하는 실시간 공간입니다.</p>
-    
-    <div class="input-box">
-        <input type="text" id="memoInput" placeholder="메모 입력 혹은 캡처본을 여기에 붙여넣기(Ctrl+V) 하세요...">
+<div class="main-wrapper">
+
+    <div class="login-container" id="loginScreen">
+        <h1>우리 가족 메모장 로그인</h1>
+        <div class="subtitle">사용하실 프로필을 선택해 주세요.</div>
+
+        <div class="profile-list">
+            <div class="profile-card" onclick="enterMemoApp('아빠')">
+                <div class="avatar-box papa">👨</div>
+                <div class="profile-name">아빠</div>
+            </div>
+            <div class="profile-card" onclick="enterMemoApp('엄마')">
+                <div class="avatar-box mama">👩</div>
+                <div class="profile-name">엄마</div>
+            </div>
+            <div class="profile-card" onclick="enterMemoApp('아들1')">
+                <div class="avatar-box son1">👦</div>
+                <div class="profile-name">아들1</div>
+            </div>
+            <div class="profile-card" onclick="enterMemoApp('아들2')">
+                <div class="avatar-box son2">🧑</div>
+                <div class="profile-name">아들2</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="memo-container" id="memoScreen">
+        <h2 class="welcome-title" id="welcomeMessage">❤️ 가족 메모장</h2>
+        <p style="color: #aaa; margin-bottom: 20px;">우리 가족이 함께 공유하는 실시간 공간입니다.</p>
         
-        <div class="preview-area" id="previewArea">
-            <button class="cancel-preview" onclick="clearPreview()">X</button>
-            <img src="" id="previewImg" class="preview-img" alt="캡처 미리보기">
-            <div style="font-size: 12px; color: #aaa; margin-top: 5px;">캡처된 이미지가 감지되었습니다.</div>
+        <div class="input-box">
+            <input type="text" id="memoInput" placeholder="메모 입력 혹은 캡처본을 여기에 붙여넣기(Ctrl+V) 하세요...">
+            
+            <div class="preview-area" id="previewArea">
+                <button class="cancel-preview" onclick="clearPreview()">X</button>
+                <img src="" id="previewImg" class="preview-img" alt="캡처 미리보기">
+                <div style="font-size: 12px; color: #aaa; margin-top: 5px;">캡처된 이미지가 감지되었습니다.</div>
+            </div>
+
+            <button id="submitBtn" onclick="saveMemo()">메모 등록하기</button>
         </div>
 
-        <button id="submitBtn" onclick="saveMemo()">메모 등록하기</button>
+        <div class="memo-list" id="memoListArea">
+            <div class="no-memo">아직 작성된 메모가 없습니다.</div>
+        </div>
     </div>
 
-    <div class="memo-list" id="memoListArea">
-        <div class="no-memo">아직 작성된 메모가 없습니다.</div>
-    </div>
 </div>
 
 <script>
@@ -357,6 +474,7 @@
 
     let currentWriter = ""; 
     let pastedFile = null; 
+    let selectedFilterDate = ""; // 달력 필터 날짜 보관 변수
 
     // 🔒 지정 비밀번호 매칭 (Z1234이름@)
     function enterMemoApp(name) {
@@ -382,7 +500,8 @@
         currentWriter = name; 
         document.getElementById('loginScreen').style.display = 'none'; 
         document.getElementById('memoScreen').style.display = 'block';
-        document.getElementById('fixedStorageHeader').style.display = 'block'; // 로그인 시 우측 상단 박스 노출
+        document.getElementById('fixedStorageHeader').style.display = 'block'; 
+        document.getElementById('fixedCalendarSidebar').style.display = 'block'; // 로그인 성공 시 달력 오픈
         document.getElementById('welcomeMessage').innerText = "❤️ " + name + " 님의 가족 메모장";
         
         loadMemos();
@@ -470,36 +589,151 @@
         });
     }
 
-    // 데이터 수신 및 상단 정렬
+    // 데이터 실시간 수신 및 달력 필터 연동 화면 그리기
     function loadMemos() {
         database.ref('memos').on('value', (snapshot) => {
-            const listArea = document.getElementById('memoListArea');
-            listArea.innerHTML = ""; 
+            renderMemoList(snapshot.val());
+        });
+    }
 
-            const data = snapshot.val();
-            if (!data) {
-                listArea.innerHTML = '<div class="no-memo">아직 작성된 메모가 없습니다.</div>';
+    function renderMemoList(data) {
+        const listArea = document.getElementById('memoListArea');
+        listArea.innerHTML = ""; 
+
+        if (!data) {
+            listArea.innerHTML = '<div class="no-memo">아직 작성된 메모가 없습니다.</div>';
+            return;
+        }
+
+        let displayedCount = 0;
+
+        Object.keys(data).forEach((key) => {
+            const memo = data[key];
+            
+            // 📅 날짜 계산 및 달력 필터 검사 구역
+            const memoDateObj = new Date(memo.timestamp);
+            const yyyy = memoDateObj.getFullYear();
+            const mm = String(memoDateObj.getMonth() + 1).padStart(2, '0');
+            const dd = String(memoDateObj.getDate()).padStart(2, '0');
+            const memoDateString = `${yyyy}-${mm}-${dd}`; // '2026-06-20' 형태 생성
+
+            // 만약 달력 날짜가 선택되어 있는데, 글 날짜랑 다르면 이 글은 패스(숨김)
+            if (selectedFilterDate && selectedFilterDate !== memoDateString) {
                 return;
             }
 
-            Object.keys(data).forEach((key) => {
-                const memo = data[key];
-                const itemDiv = document.createElement('div');
-                itemDiv.className = 'memo-item';
-                
-                const imgTag = memo.imageUrl ? `<img src="${memo.imageUrl}" class="memo-image" alt="가족 업로드 이미지">` : '';
-                
-                itemDiv.innerHTML = `
-                    <div class="memo-header">
-                        <span class="author-badge badge-${memo.writer}">${memo.writer}</span>
-                        <button class="delete-btn" onclick="deleteMemo('${key}', '${memo.writer}', '${memo.storageFileName || ''}')">❌</button>
-                    </div>
-                    <div class="memo-text">${memo.content}</div>
-                    ${imgTag}
-                `;
-                
-                listArea.insertBefore(itemDiv, listArea.firstChild);
-            });
+            displayedCount++;
+
+            const hours = String(memoDateObj.getHours()).padStart(2, '0');
+            const minutes = String(memoDateObj.getMinutes()).padStart(2, '0');
+            const finalTimeText = `${yyyy}년 ${mm}월 ${dd}일 ${hours}:${minutes}`;
+
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'memo-item';
+            
+            const imgTag = memo.imageUrl ? `<img src="${memo.imageUrl}" class="memo-image" alt="가족 업로드 이미지">` : '';
+            
+            itemDiv.innerHTML = `
+                <div class="memo-header">
+                    <span class="author-badge badge-${memo.writer}">${memo.writer}</span>
+                    <button class="delete-btn" onclick="deleteMemo('${key}', '${memo.writer}', '${memo.storageFileName || ''}')">❌</button>
+                </div>
+                <div class="memo-text" id="text-${key}">${memo.content}</div>
+                ${imgTag}
+                <div class="memo-info-line">
+                    <span id="time-${key}">${finalTimeText}</span>
+                    <button class="edit-action-btn" onclick="editMemo('${key}', '${memo.writer}', ${memo.timestamp})">🛠️ 내용/날짜 수정</button>
+                </div>
+            `;
+            
+            listArea.insertBefore(itemDiv, listArea.firstChild);
+        });
+
+        if (displayedCount === 0 && selectedFilterDate) {
+            listArea.innerHTML = `<div class="no-memo">${selectedFilterDate} 일자에 작성된 메모가 없습니다.</div>`;
+        } else if (displayedCount === 0) {
+            listArea.innerHTML = '<div class="no-memo">아직 작성된 메모가 없습니다.</div>';
+        }
+    }
+
+    // 📅 [달력 기능] 달력 변경 시 필터링 실행
+    function filterMemosByDate() {
+        const inputVal = document.getElementById('calendarFilterInput').value;
+        if (inputVal) {
+            selectedFilterDate = inputVal;
+            document.getElementById('filterStatusText').style.display = 'block';
+            document.getElementById('filterStatusText').innerText = `📌 ${inputVal} 기록 감시 중`;
+        } else {
+            clearDateFilter();
+        }
+        
+        // 실시간 데이터를 다시 읽어서 새로 그리기
+        database.ref('memos').once('value', (snapshot) => {
+            renderMemoList(snapshot.val());
+        });
+    }
+
+    // 📅 [달력 기능] 전체보기로 리셋
+    function clearDateFilter() {
+        selectedFilterDate = "";
+        document.getElementById('calendarFilterInput').value = "";
+        document.getElementById('filterStatusText').style.display = 'none';
+        
+        database.ref('memos').once('value', (snapshot) => {
+            renderMemoList(snapshot.val());
+        });
+    }
+
+    // 🛠️ [내용/날짜 수정 기능] 본인 검증 후 원격 DB 즉시 업데이트
+    function editMemo(key, writerName, oldTimestamp) {
+        if (currentWriter !== writerName) {
+            alert("본인이 작성한 메모만 수정할 수 있습니다.");
+            return;
+        }
+
+        // 1. 기존 내용 추출 후 수정 팝업
+        const currentText = document.getElementById(`text-${key}`).innerText;
+        const newText = prompt("수정할 메모 내용을 입력하세요:", currentText);
+        if (newText === null) return; // 취소 버튼 누름
+
+        // 2. 기존 날짜 형식 변환 후 날짜 변경 팝업
+        const oldDate = new Date(oldTimestamp);
+        const defaultDateStr = `${oldDate.getFullYear()}-${String(oldDate.getMonth() + 1).padStart(2, '0')}-${String(oldDate.getDate()).padStart(2, '0')}`;
+        const newDateStr = prompt("작업 날짜를 변경하시겠습니까? (형식: YYYY-MM-DD)", defaultDateStr);
+        
+        let finalTimestamp = oldTimestamp;
+
+        // 날짜 변경을 입력한 경우 타임스탬프 재계산
+        if (newDateStr && newDateStr !== defaultDateStr) {
+            const dateParts = newDateStr.split('-');
+            if (dateParts.length === 3) {
+                // 기존 시/분 값을 그대로 유지하면서 날짜만 이식
+                const parsedDate = new Date(
+                    parseInt(dateParts[0]), 
+                    parseInt(dateParts[1]) - 1, 
+                    parseInt(dateParts[2]),
+                    oldDate.getHours(),
+                    oldDate.getMinutes(),
+                    oldDate.getSeconds()
+                );
+                if (!isNaN(parsedDate.getTime())) {
+                    finalTimestamp = parsedDate.getTime();
+                } else {
+                    alert("날짜 형식이 올바르지 않아 기존 날짜로 유지됩니다.");
+                }
+            } else {
+                alert("날짜 형식이 올바르지 않아 기존 날짜로 유지됩니다.");
+            }
+        }
+
+        // 3. 서버 실시간 업데이트 연동
+        database.ref('memos/' + key).update({
+            content: newText.trim(),
+            timestamp: finalTimestamp
+        }).then(() => {
+            alert("메모 내용 및 날짜 수정이 정상 반영되었습니다.");
+        }).catch((error) => {
+            alert("수정 실패: " + error.message);
         });
     }
 
