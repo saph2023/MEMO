@@ -9,22 +9,23 @@
     main { max-width:800px; margin:20px auto; background:#fff; padding:20px; border-radius:8px; display: none; }
     h2 { margin-top:0; }
     .section { margin-bottom:25px; border-bottom:1px solid #ddd; padding-bottom:15px; }
-    label { display:block; margin:8px 0 4px; }
-    input, textarea { width:100%; padding:8px; box-sizing:border-box; }
+    label { display:block; margin:8px 0 4px; font-weight: bold; }
+    input, textarea { width:100%; padding:8px; box-sizing:border-box; margin-bottom: 10px; }
     button { margin-top:10px; padding:6px 12px; cursor:pointer; }
-    ul { padding-left:18px; }
-    li { margin-bottom:12px; }
+    ul { padding-left:18px; list-style: none; }
+    li { margin-bottom:20px; padding-bottom:15px; border-bottom: 1px dashed #eee; }
     .meta { font-size:12px; color:#666; }
     
-    /* 작성자 구분을 위한 깔끔한 배지 스타일 */
     .author-badge { background: #e0f2fe; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; margin-left: 8px; color: #0369a1; display: inline-block; }
+    
+    /* 🖼️ 첨부된 이미지 스타일 */
+    .attached-img { max-width: 100%; max-height: 300px; display: block; margin: 10px 0; border-radius: 6px; border: 1px solid #ddd; object-fit: contain; }
     
     #passwordOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f5f5f5; display: flex; justify-content: center; align-items: center; z-index: 9999; }
     .password-box { background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; max-width: 350px; width: 90%; }
     .password-box input { margin: 15px 0; text-align: center; font-size: 18px; letter-spacing: 3px; }
     .password-box button { width: 100%; padding: 10px; background: #222; color: #fff; border: none; font-size: 16px; border-radius: 4px; }
     
-    /* 🔴 우측 상단 로그아웃(비번 다시입력) 버튼 스타일 정밀 수정 */
     .logout-btn { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); background: #ff4d4d; color: #fff; border: none; padding: 8px 14px; border-radius: 4px; font-size: 13px; font-weight: bold; cursor: pointer; display: none; }
     .logout-btn:hover { background: #e60000; }
   </style>
@@ -52,8 +53,14 @@
     
     <label>제목</label>
     <input id="titleInput" type="text" placeholder="예: 장보기 목록, 가족 공지 등">
+    
+    <label>사진 링크 주소 (선택)</label>
+    <input id="imageUrlInput" type="text" placeholder="인터넷 이미지 주소(URL)를 복사해서 붙여넣으세요">
+    <p style="font-size: 11px; color:#888; margin: -5px 0 10px 0;">* 무료 이미지 호스팅 사이트(예: postimages.org)에 사진을 올린 후 '직접 링크'를 넣으시면 됩니다.</p>
+    
     <label>내용</label>
     <textarea id="contentInput" rows="3" placeholder="상세 내용 입력"></textarea>
+    
     <button onclick="saveItem()">저장</button>
     <span id="editInfo" class="meta"></span>
   </section>
@@ -68,7 +75,6 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
   import { getDatabase, ref, push, update, remove, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-  // 🔑 가족 구성원별 개별 비밀번호 설정
   const FAMILY_PASSWORDS = {
     "아빠": "Z1234아빠@",
     "엄마": "Z1234엄마@",
@@ -94,15 +100,13 @@
   let items = []; 
   let editingKey = null; 
 
-  // 화면 상태를 로그인/로그아웃 모드에 맞춰 제어하는 내부 함수
   function showMainPage(username) {
     document.getElementById('passwordOverlay').style.display = 'none';
     document.getElementById('memoMain').style.display = 'block';
-    document.getElementById('logoutBtn').style.display = 'block'; // 로그아웃 버튼 노출
+    document.getElementById('logoutBtn').style.display = 'block';
     document.getElementById('currentUserSpan').textContent = username;
   }
 
-  // 1. 비밀번호 확인 함수 (전역 바인딩)
   window.checkPassword = function() {
     const inputPwd = document.getElementById('pwdInput').value;
     let foundUser = null;
@@ -125,16 +129,14 @@
     }
   }
 
-  // 2. 로그아웃 함수 (전역 바인딩 - 로컬 데이터 삭제 및 페이지 새로고침)
   window.logoutFamily = function() {
-    if (confirm("로그아웃하시겠습니까? 다음 접속 시 비밀번호를 다시 입력해야 합니다.")) {
+    if (confirm("로그아웃하시겠습니까?")) {
       localStorage.removeItem('family_memo_auth');
       localStorage.removeItem('family_memo_user');
       location.reload();
     }
   }
 
-  // 자동 통과 체크 검사
   if (localStorage.getItem('family_memo_auth') === 'passed') {
     const savedUser = localStorage.getItem('family_memo_user') || '가족';
     showMainPage(savedUser);
@@ -146,12 +148,14 @@
          + `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   }
 
-  // 3. 메모 저장 함수 (전역 바인딩)
   window.saveItem = function() {
     const titleEl = document.getElementById('titleInput');
     const contentEl = document.getElementById('contentInput');
+    const imageUrlEl = document.getElementById('imageUrlInput');
+    
     const title = titleEl.value.trim();
     const content = contentEl.value.trim();
+    const imageUrl = imageUrlEl.value.trim() || null;
     const currentAuthor = localStorage.getItem('family_memo_user') || '가족';
 
     if (!title) {
@@ -164,6 +168,7 @@
         title,
         content,
         author: currentAuthor,
+        imageUrl: imageUrl, 
         createdAt: new Date().toISOString(),
         updatedAt: null
       });
@@ -171,17 +176,18 @@
       update(ref(db, `family_memos/${editingKey}`), {
         title,
         content,
+        imageUrl: imageUrl,
         updatedAt: new Date().toISOString()
       });
     }
 
     titleEl.value = '';
     contentEl.value = '';
+    imageUrlEl.value = ''; 
     editingKey = null;
     document.getElementById('editInfo').textContent = '';
   }
 
-  // 데이터 변경 감지 실시간 리스트 렌더링
   onValue(itemsRef, (snapshot) => {
     const listEl = document.getElementById('itemList');
     listEl.innerHTML = '';
@@ -200,9 +206,13 @@
         const created = formatDate(new Date(item.createdAt));
         const updated = item.updatedAt ? ` / 수정: ${formatDate(new Date(item.updatedAt))}` : '';
         const authorTag = item.author ? `<span class="author-badge">👤 ${item.author}</span>` : '';
+        
+        // 🖼️ 입력된 이미지 주소가 있으면 <img> 태그 표현
+        const imgTag = item.imageUrl ? `<img src="${item.imageUrl}" class="attached-img" alt="첨부 이미지">` : '';
 
         li.innerHTML = `
           <strong>${item.title}</strong>${authorTag}<br>
+          ${imgTag}
           <div style="margin: 5px 0; font-size: 15px; white-space: pre-wrap;">${item.content}</div>
           <span class="meta">생성: ${created}${updated}</span><br>
           <button onclick="editItem('${item.key}')">수정</button>
@@ -223,6 +233,7 @@
     if (item) {
       document.getElementById('titleInput').value = item.title;
       document.getElementById('contentInput').value = item.content;
+      document.getElementById('imageUrlInput').value = item.imageUrl || '';
       editingKey = key;
       document.getElementById('editInfo').textContent = `지금 선택한 항목을 수정 중...`;
     }
