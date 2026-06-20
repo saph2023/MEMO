@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>우리 가족 메모장 로그인</title>
+    <title>우리 가족 메모장</title>
     <style>
         body {
             background-color: #141414;
@@ -14,9 +14,13 @@
             align-items: center;
             height: 100vh;
             margin: 0;
+            overflow: hidden;
         }
+        
+        /* 1. 로그인 화면 스타일 */
         .login-container {
             text-align: center;
+            transition: opacity 0.5s ease;
         }
         h1 {
             font-size: 44px;
@@ -53,8 +57,7 @@
             transition: transform 0.2s ease, border 0.2s ease;
             border: 3px solid transparent;
         }
-        /* 프로필별 배경색 지정 (기존 배지 스타일 반영) */
-        .papa   { background-color: #fde047; }
+        .papa   { background-color: #ffd643; }
         .mama   { background-color: #fca5a5; }
         .son1   { background-color: #93c5fd; }
         .son2   { background-color: #94a3b8; }
@@ -72,33 +75,78 @@
         .profile-card:hover .profile-name {
             color: #ffffff;
         }
+
+        /* 2. 실제 메모장 본문 화면 스타일 (처음에는 숨겨둠) */
+        .memo-container {
+            display: none; /* 처음에 숨김 */
+            width: 90%;
+            max-width: 600px;
+            text-align: center;
+            animation: fadeIn 0.5s ease forwards;
+        }
+        .memo-box {
+            background-color: #222;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 20px;
+            min-height: 200px;
+            text-align: left;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
 
-<div class="login-container">
+<div class="login-container" id="loginScreen">
     <h1>우리 가족 메모장 로그인</h1>
     <div class="subtitle">사용하실 프로필을 선택해 주세요.</div>
 
     <div class="profile-list">
-        <div class="profile-card" onclick="selectProfile('아빠')">
+        <div class="profile-card" onclick="enterMemoApp('아빠')">
             <div class="avatar-box papa">👨</div>
             <div class="profile-name">아빠</div>
         </div>
-        <div class="profile-card" onclick="selectProfile('엄마')">
+        <div class="profile-card" onclick="enterMemoApp('엄마')">
             <div class="avatar-box mama">👩</div>
             <div class="profile-name">엄마</div>
         </div>
-        <div class="profile-card" onclick="selectProfile('아들1')">
+        <div class="profile-card" onclick="enterMemoApp('아들1')">
             <div class="avatar-box son1">👦</div>
             <div class="profile-name">아들1</div>
         </div>
-        <div class="profile-card" onclick="selectProfile('아들2')">
+        <div class="profile-card" onclick="enterMemoApp('아들2')">
             <div class="avatar-box son2">🧑</div>
             <div class="profile-name">아들2</div>
         </div>
     </div>
 </div>
 
+<div class="memo-container" id="memoScreen">
+    <h2 id="welcomeMessage">○○ 님의 가족 메모장</h2>
+    <p style="color: #aaa;">이제 파이어베이스에 데이터를 쓰고 읽을 수 있습니다!</p>
+    
+    <div class="memo-box">
+        <p style="color: #666;">아직 작성된 메모가 없습니다.</p>
+    </div>
+</div>
+
 <script>
-    // 프로필 버튼을 눌렀을 때 작동하는 함수 (반응형
+    // 프로필을 누르면 실행되는 함수
+    function enterMemoApp(name) {
+        // 1. 로그인 화면을 숨깁니다.
+        document.getElementById('loginScreen').style.display = 'none';
+        
+        // 2. 메모장 화면을 보여줍니다.
+        const memoScreen = document.getElementById('memoScreen');
+        memoScreen.style.display = 'block';
+        
+        // 3. 선택한 프로필 이름으로 상단 환영 문구를 변경합니다.
+        document.getElementById('welcomeMessage').innerText = "❤️ " + name + " 님의 가족 메모장";
+    }
+</script>
+
+</body>
+</html>
