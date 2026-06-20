@@ -315,7 +315,7 @@
         document.getElementById('welcomeMessage').innerText = "❤️ " + name + " 님의 가족 메모장";
         
         loadMemos();
-        checkStorageUsage(); // 로그인하자마자 용량 체크 실행
+        checkStorageUsage(); 
     }
 
     // 📋 클립보드 캡처 붙여넣기 모니터링 (Ctrl + V)
@@ -359,24 +359,25 @@
         submitBtn.innerText = "업로드 중...";
 
         if (file) {
+            // 고유한 파일명 지정을 위해 시간값 밀리초 포함
             const fileName = "capture_" + Date.now() + ".png";
             const storageRef = storage.ref('images/' + fileName);
             
             storageRef.put(file).then((snapshot) => {
                 return snapshot.ref.getDownloadURL();
             }).then((url) => {
-                writeToDatabase(text, url);
+                writeToDatabase(text, url, fileName); // 파일명까지 함께 넘김
             }).catch((error) => {
                 alert("이미지 업로드에 실패했습니다: " + error.message);
                 submitBtn.disabled = false;
                 submitBtn.innerText = "메모 등록하기";
             });
         } else {
-            writeToDatabase(text, "");
+            writeToDatabase(text, "", "");
         }
     }
 
-    function writeToDatabase(text, imgUrl) {
+    function writeToDatabase(text, imgUrl, fileName) {
         const memoInput = document.getElementById('memoInput');
         const submitBtn = document.getElementById('submitBtn');
 
@@ -384,13 +385,14 @@
             writer: currentWriter,
             content: text,
             imageUrl: imgUrl,
+            storageFileName: fileName, // 💡 나중에 지우기 위해 파일명을 DB에 기록해 둡니다.
             timestamp: Date.now()
         }).then(() => {
             memoInput.value = "";
             clearPreview(); 
             submitBtn.disabled = false;
             submitBtn.innerText = "메모 등록하기";
-            checkStorageUsage(); // 등록 성공 후 용량 즉시 재계산
+            checkStorageUsage(); 
         }).catch((error) => {
             alert("데이터 저장 실패: " + error.message);
             submitBtn.disabled = false;
@@ -417,10 +419,11 @@
                 
                 const imgTag = memo.imageUrl ? `<img src="${memo.imageUrl}" class="memo-image" alt="가족 업로드 이미지">` : '';
                 
+                // 💡 글 정보와 보관용 파일명까지 삭제 연동에 함께 던져줍니다.
                 itemDiv.innerHTML = `
                     <div class="memo-header">
                         <span class="author-badge badge-${memo.writer}">${memo.writer}</span>
-                        <button class="delete-btn" onclick="deleteMemo('${key}', '${memo.writer}')">❌</button>
+                        <button class="delete-btn" onclick="deleteMemo('${key}', '${memo.writer}', '${memo.storageFileName || ''}')">❌</button>
                     </div>
                     <div class="memo-text">${memo.content}</div>
                     ${imgTag}
@@ -431,56 +434,32 @@
         });
     }
 
-    // 🔒 본인 글만 삭제 검증
-    function deleteMemo(key, writerName) {
+    // 🔒 본인 글만 삭제 검증 + 스토리지 연동 진짜 이미지 삭제
+    function deleteMemo(key, writerName, storageFileName) {
         if (currentWriter !== writerName) {
             alert("본인이 작성한 메모만 삭제할 수 있습니다.");
             return; 
         }
 
-        if (confirm("이 메모를 정말 삭제하시겠습니까?")) {
-            database.ref('memos/' + key).remove();
+        if (confirm("이 메모를 정말 삭제하시겠습니까?\n(첨부된 사진 파일도 서버에서 완전히 삭제됩니다.)")) {
+            
+            // 1. 만약 게시글에 첨부된 사진 파일명이 존재한다면, 스토리지에서 진짜 파일 삭제
+            if (storageFileName && storageFileName !== "") {
+                const fileRef = storage.ref('images/' + storageFileName);
+                fileRef.delete().then(() => {
+                    // 사진 삭제 성공 후 글 삭제
+                    proceedDeleteText(key);
+                }).catch((error) => {
+                    console.log("이미 파일이 없거나 삭제 실패:", error.message);
+                    // 파일 삭제에 실패하더라도 게시글은 마저 지울 수 있게 처리
+                    proceedDeleteText(key);
+                });
+            } else {
+                // 사진이 없는 일반 글인 경우 바로 글 삭제
+                proceedDeleteText(key);
+            }
         }
     }
 
-    // 📊 파이어베이스 스토리지 실제 사용량을 계산해서 화면에 업데이트하는 자바스크립트 함수
-    function checkStorageUsage() {
-        const storageUsageText = document.getElementById('storageUsageText');
-        const storageProgressBar = document.getElementById('storageProgressBar');
-
-        storageUsageText.innerText = "용량 계산 중...";
-
-        const bucketRef = storage.ref('images'); 
-
-        bucketRef.listAll().then((result) => {
-            let totalSize = 0;
-            const processItems = result.items.map((itemRef) => {
-                return itemRef.getMetadata().then((metadata) => {
-                    totalSize += metadata.size; 
-                });
-            });
-
-            Promise.all(processItems).then(() => {
-                const usageMB = totalSize / 1024 / 1024; 
-                const usageGB = usageMB / 1024; 
-                const totalGB = 5; 
-                const usagePercent = (usageGB / totalGB) * 100; 
-
-                // 500MB 미만이면 MB로 표시, 넘어가면 GB 단위로 깔끔하게 표시
-                if(usageMB < 500) {
-                    storageUsageText.innerText = usageMB.toFixed(2) + " MB / " + totalGB + " GB";
-                } else {
-                    storageUsageText.innerText = usageGB.toFixed(2) + " GB / " + totalGB + " GB";
-                }
-                
-                storageProgressBar.style.width = Math.min(usagePercent, 100) + "%"; 
-            });
-        }).catch((error) => {
-            console.log("용량 체크 에러:", error);
-            storageUsageText.innerText = "0.00 MB / 5 GB";
-        });
-    }
-</script>
-
-</body>
-</html>
+    // 텍스트 글 삭제 및 용량 새로고침 처리
+    function proceedDeleteText(key) {
