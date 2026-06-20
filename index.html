@@ -260,6 +260,18 @@
     <div class="memo-list" id="memoListArea">
         <div class="no-memo">아직 작성된 메모가 없습니다.</div>
     </div>
+
+    <div style="background-color: #222; margin-top: 30px; padding: 20px; border-radius: 12px; text-align: left; position: relative;">
+        <h3 style="font-size: 18px; color: #aaa; margin-bottom: 10px;">📊 스토리지 사용 현황 (Spark 무료)</h3>
+        <p style="font-size: 14px; color: #888; margin: 0 0 15px 0; font-weight: normal;">우리 가족이 함께 쓰는 사진 서랍 공간입니다.</p>
+
+        <div style="width: 100%; height: 25px; background-color: #333; border-radius: 15px; position: relative; overflow: hidden; border: 1px solid #444;">
+            <div id="storageProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #e50914, #ff6b6b); border-radius: 15px; transition: width 0.3s ease;"></div>
+            <span id="storageUsageText" style="position: absolute; width: 100%; text-align: center; left: 0; top: 3px; font-size: 14px; font-weight: bold; color: white;">확인 중... / 5GB</span>
+        </div>
+        
+        <button onclick="checkStorageUsage()" style="position: absolute; right: 20px; top: 15px; background: none; border: 1px solid #444; color: #888; padding: 4px 10px; border-radius: 4px; font-size: 11px; cursor: pointer;">새로고침</button>
+    </div>
 </div>
 
 <script>
@@ -303,11 +315,11 @@
         document.getElementById('welcomeMessage').innerText = "❤️ " + name + " 님의 가족 메모장";
         
         loadMemos();
+        checkStorageUsage(); // 로그인하자마자 용량 체크 실행
     }
 
-    // 📋 클립보드 캡처 붙여넣기 모니터링 (안정성 강화)
+    // 📋 클립보드 캡처 붙여넣기 모니터링 (Ctrl + V)
     document.addEventListener('paste', function (event) {
-        // 프로필 안 고르고 메인화면일 때는 작동 방지
         if (!currentWriter) return;
 
         const items = (event.clipboardData || window.clipboardData).items;
@@ -333,7 +345,7 @@
         document.getElementById('previewImg').src = "";
     }
 
-    // 🚀 통합 등록 처리 함수 (버튼 에러 완벽 차단)
+    // 등록 처리 함수
     function saveMemo() {
         const memoInput = document.getElementById('memoInput');
         const submitBtn = document.getElementById('submitBtn');
@@ -355,7 +367,7 @@
             }).then((url) => {
                 writeToDatabase(text, url);
             }).catch((error) => {
-                alert("이미지 업로드에 실패했습니다. (Storage 규칙을 활성화하셨는지 확인해 주세요): " + error.message);
+                alert("이미지 업로드에 실패했습니다: " + error.message);
                 submitBtn.disabled = false;
                 submitBtn.innerText = "메모 등록하기";
             });
@@ -378,6 +390,7 @@
             clearPreview(); 
             submitBtn.disabled = false;
             submitBtn.innerText = "메모 등록하기";
+            checkStorageUsage(); // 등록 성공 후 용량 즉시 재계산
         }).catch((error) => {
             alert("데이터 저장 실패: " + error.message);
             submitBtn.disabled = false;
@@ -428,6 +441,44 @@
         if (confirm("이 메모를 정말 삭제하시겠습니까?")) {
             database.ref('memos/' + key).remove();
         }
+    }
+
+    // 📊 파이어베이스 스토리지 실제 사용량을 계산해서 화면에 업데이트하는 자바스크립트 함수
+    function checkStorageUsage() {
+        const storageUsageText = document.getElementById('storageUsageText');
+        const storageProgressBar = document.getElementById('storageProgressBar');
+
+        storageUsageText.innerText = "용량 계산 중...";
+
+        const bucketRef = storage.ref('images'); 
+
+        bucketRef.listAll().then((result) => {
+            let totalSize = 0;
+            const processItems = result.items.map((itemRef) => {
+                return itemRef.getMetadata().then((metadata) => {
+                    totalSize += metadata.size; 
+                });
+            });
+
+            Promise.all(processItems).then(() => {
+                const usageMB = totalSize / 1024 / 1024; 
+                const usageGB = usageMB / 1024; 
+                const totalGB = 5; 
+                const usagePercent = (usageGB / totalGB) * 100; 
+
+                // 500MB 미만이면 MB로 표시, 넘어가면 GB 단위로 깔끔하게 표시
+                if(usageMB < 500) {
+                    storageUsageText.innerText = usageMB.toFixed(2) + " MB / " + totalGB + " GB";
+                } else {
+                    storageUsageText.innerText = usageGB.toFixed(2) + " GB / " + totalGB + " GB";
+                }
+                
+                storageProgressBar.style.width = Math.min(usagePercent, 100) + "%"; 
+            });
+        }).catch((error) => {
+            console.log("용량 체크 에러:", error);
+            storageUsageText.innerText = "0.00 MB / 5 GB";
+        });
     }
 </script>
 
