@@ -110,11 +110,35 @@
             color: white;
             font-size: 16px;
         }
-        .input-box input[type="file"] {
-            color: #aaa;
-            font-size: 14px;
-            padding: 5px 0;
+        
+        /* 📎 캡처 이미지 미리보기 영역 스킨 */
+        .preview-area {
+            display: none;
+            position: relative;
+            margin-top: 5px;
+            text-align: center;
+            background-color: #333;
+            padding: 10px;
+            border-radius: 6px;
         }
+        .preview-img {
+            max-height: 150px;
+            border-radius: 4px;
+        }
+        .cancel-preview {
+            position: absolute;
+            top: 5px;
+            right: 10px;
+            background: #e50914;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
         .input-box button {
             padding: 15px;
             border-radius: 6px;
@@ -223,9 +247,15 @@
     <p style="color: #aaa; margin-bottom: 20px;">우리 가족이 함께 공유하는 실시간 공간입니다.</p>
     
     <div class="input-box">
-        <input type="text" id="memoInput" placeholder="가족에게 남길 메모 내용을 입력하세요...">
-        <input type="file" id="fileInput" accept="image/*">
-        <button id="submitBtn" onclick="saveMemoWithImage()">메모 등록하기</button>
+        <input type="text" id="memoInput" placeholder="메모 입력 혹은 캡처본을 여기에 붙여넣기(Ctrl+V) 하세요..." onpaste="handlePaste(event)">
+        
+        <div class="preview-area" id="previewArea">
+            <button class="cancel-preview" onclick="clearPreview()">X</button>
+            <img src="" id="previewImg" class="preview-img" alt="캡처 미리보기">
+            <div style="font-size: 12px; color: #aaa; margin-top: 5px;">캡처된 이미지가 감지되었습니다.</div>
+        </div>
+
+        <button id="submitBtn" onclick="saveMemoWithCapturedImage()">메모 등록하기</button>
     </div>
 
     <div class="memo-list" id="memoListArea">
@@ -245,34 +275,30 @@
     const storage = firebase.storage();
 
     let currentWriter = "";
+    let pastedFile = null; // 클립보드에서 읽어온 캡처 이미지 임시 저장소
 
-    // 🔒 4명 모두에게 각자의 비밀번호 규칙 적용
+    // 🔒 예전 비밀번호 구조(Z1234 스타일) 4명 전원 롤백 및 적용
     function enterMemoApp(name) {
-        // 1. 이미 비번을 맞췄던 세션 기록이 있는지 체크
         const isVerified = sessionStorage.getItem("verified_" + name);
 
-        // 2. 이전에 인증을 완료하지 않은 경우에만 비번 입력창 작동
         if (!isVerified) {
-            // 가족원 이름에 맞게 안내 메시지 출력
             const password = prompt(name + " 프로필의 비밀번호를 입력하세요.");
             
-            // 각자 지정된 비밀번호 규칙 검사
             let isCorrect = false;
-            if (name === '아빠' && password === '아빠@') isCorrect = true;
-            else if (name === '엄마' && password === '엄마@') isCorrect = true;
-            else if (name === '아들1' && password === '아들1@') isCorrect = true;
-            else if (name === '아들2' && password === '아들2@') isCorrect = true;
+            // 🔒 번복 불가능한 기존 약속된 비밀번호 매칭 (Z1234 식)
+            if (name === '아빠' && password === 'Z1234아빠@') isCorrect = true;
+            else if (name === '엄마' && password === 'Z1234엄마@') isCorrect = true;
+            else if (name === '아들1' && password === 'Z1234아들1@') isCorrect = true;
+            else if (name === '아들2' && password === 'Z1234아들2@') isCorrect = true;
 
             if (isCorrect) {
-                // 패스워드가 맞으면 해당 브라우저 탭을 끄기 전까지 인증 상태 유지
                 sessionStorage.setItem("verified_" + name, "true");
             } else {
                 alert("비밀번호가 잘못되었습니다.");
-                return; // 진입 차단
+                return;
             }
         }
 
-        // 3. 인증 통과 혹은 세션 유지 중일 때 화면 전환
         currentWriter = name;
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('memoScreen').style.display = 'block';
@@ -281,14 +307,45 @@
         loadMemos();
     }
 
-    // 사진 및 메모 파이어베이스 등록 처리
-    function saveMemoWithImage() {
+    // 📋 [핵심] 입력창에 Ctrl + V로 이미지를 붙여 넣었을 때 자동으로 파일 가로채기
+    function handlePaste(event) {
+        const items = (event.clipboardData || event.originalEvent.clipboardData).items;
+        
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf("image") !== -1) {
+                // 클립보드 데이터에서 이미지 파일을 바이너리로 추출
+                const file = items[i].getAsFile();
+                pastedFile = file;
+
+                // 화면에 붙여넣은 캡처본 미리보기 띄우기
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('previewImg').src = e.target.result;
+                    document.getElementById('previewArea').style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+                
+                // 입력창에 지저분한 바이너리 텍스트가 적히는 것 방지
+                event.preventDefault();
+                break;
+            }
+        }
+    }
+
+    // 미리보기 지우기 함수
+    function clearPreview() {
+        pastedFile = null;
+        document.getElementById('previewArea').style.display = 'none';
+        document.getElementById('previewImg').src = "";
+    }
+
+    // 📸 캡처된 파일 업로드 및 실시간 DB 기록 처리
+    function saveMemoWithCapturedImage() {
         const memoInput = document.getElementById('memoInput');
-        const fileInput = document.getElementById('fileInput');
         const submitBtn = document.getElementById('submitBtn');
         
         const text = memoInput.value.trim();
-        const file = fileInput.files[0];
+        const file = pastedFile; // 붙여넣기 한 캡처 이미지 할당
         
         if (text === "" && !file) return;
 
@@ -296,7 +353,8 @@
         submitBtn.innerText = "업로드 중...";
 
         if (file) {
-            const fileName = Date.now() + "_" + file.name;
+            // 스토리지에 고유 캡처 이미지명 생성 후 업로드
+            const fileName = "capture_" + Date.now() + ".png";
             const storageRef = storage.ref('images/' + fileName);
             
             storageRef.put(file).then((snapshot) => {
@@ -315,7 +373,6 @@
 
     function writeToDatabase(text, imgUrl) {
         const memoInput = document.getElementById('memoInput');
-        const fileInput = document.getElementById('fileInput');
         const submitBtn = document.getElementById('submitBtn');
 
         database.ref('memos').push({
@@ -325,7 +382,7 @@
             timestamp: Date.now()
         }).then(() => {
             memoInput.value = "";
-            fileInput.value = "";
+            clearPreview(); // 캡처본 임시 저장소 및 화면 리셋
             submitBtn.disabled = false;
             submitBtn.innerText = "메모 등록하기";
         });
