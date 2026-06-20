@@ -1,209 +1,104 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>우리 가족 실시간 공유 메모장</title>
-  <style>
-    body { font-family: 'Malgun Gothic', sans-serif; margin: 0; padding: 0; background:#f0f2f5; color: #333; }
-    header { background:#1f1f1f; color:#fff; padding:20px; text-align:center; position: relative; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
-    header h1 { margin: 0; font-size: 24px; }
-    main { max-width:700px; margin:20px auto; background:#fff; padding:25px; border-radius:12px; display: none; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-    h2 { margin-top:0; color: #1f1f1f; font-size: 18px; border-left: 4px solid #1f1f1f; padding-left: 10px; }
-    .section { margin-bottom:30px; padding-bottom:20px; }
-    .form-group { margin-bottom: 15px; }
-    label { display:block; margin-bottom: 6px; font-weight: bold; font-size: 14px; }
-    input, textarea, select { width:100%; padding:10px; box-sizing:border-box; border: 1px solid #cccccc; border-radius: 6px; font-size: 14px; }
-    input:focus, textarea:focus { border-color: #1f1f1f; outline: none; }
-    
-    .btn-container { display: flex; gap: 10px; margin-top: 15px; }
-    button { padding:10px 20px; cursor:pointer; border: none; border-radius: 6px; font-weight: bold; font-size: 14px; transition: background 0.2s; }
-    .btn-save { background: #1f1f1f; color: #fff; flex: 1; }
-    .btn-save:hover { background: #333; }
-    .btn-cancel { background: #e4e6eb; color: #4b4b4b; }
-    
-    ul { padding: 0; list-style: none; }
-    li { margin-bottom:15px; padding:20px; background: #f9f9f9; border-radius: 8px; border: 1px solid #e4e6eb; position: relative; }
-    .meta { font-size:12px; color:#888; margin-top: 10px; display: block; }
-    
-    /* 🏷️ 작성자 배지 (넷플릭스 프로필 스타일) */
-    .author-badge { padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; margin-left: 8px; display: inline-block; vertical-align: middle; }
-    .badge-아빠 { background: #fde047; color: #854d0e; }
-    .badge-엄마 { background: #fca5a5; color: #991b1b; }
-    .badge-아들1 { background: #93c5fd; color: #1e40af; }
-    .badge-아들2 { background: #94a3b8; color: #1e293b; }
-    .badge-키즈 { background: #c084fc; color: #6b21a8; }
-    
-    .item-title { font-size: 16px; font-weight: bold; display: inline-block; vertical-align: middle; }
-    .item-content { margin: 12px 0; font-size: 15px; white-space: pre-wrap; line-height: 1.5; }
-    
-    /* 🛒 장보기 체크박스 */
-    .todo-container { display: flex; align-items: center; margin-bottom: 10px; background: #edf2f7; padding: 8px 12px; border-radius: 6px; }
-    .todo-checkbox { width: auto; margin-right: 10px; transform: scale(1.2); cursor: pointer; }
-    .todo-text { font-size: 14px; font-weight: bold; }
-    .completed { text-decoration: line-through; color: #a0aec0; }
-    
-    .attached-img { max-width: 100%; max-height: 350px; display: block; margin: 12px 0; border-radius: 8px; border: 1px solid #e4e6eb; object-fit: contain; }
-    .action-btns { margin-top: 12px; display: flex; gap: 8px; }
-    .action-btns button { padding: 5px 10px; font-size: 12px; background: #e4e6eb; color: #333; }
-    .action-btns button.btn-delete { background: #ffebee; color: #c62828; }
-    
-    /* 🔒 로그인 대문 화면 (가족 선택 인터페이스) */
-    #passwordOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #141414; display: flex; justify-content: center; align-items: center; z-index: 9999; }
-    .password-box { background: transparent; padding: 20px; text-align: center; max-width: 500px; width: 90%; color: #fff; }
-    .profile-list { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin-top: 30px; }
-    .profile-card { cursor: pointer; width: 90px; text-align: center; transition: transform 0.2s; }
-    .profile-card:hover { transform: scale(1.1); }
-    .profile-img { width: 80px; height: 80px; border-radius: 8px; display: flex; justify-content: center; align-items: center; font-size: 32px; font-weight: bold; color: #fff; box-sizing: border-box; }
-    .profile-name { margin-top: 8px; font-size: 14px; color: #aaa; }
-    .profile-card:hover .profile-name { color: #fff; }
-    
-    .img-아빠 { background: #ffcc00; }
-    .img-엄마 { background: #ff3344; }
-    .img-아들1 { background: #0084ff; }
-    .img-아들2 { background: #334455; }
-    .img-키즈 { background: #aa33ff; }
-    
-    .login-form { display: none; margin-top: 30px; background: #222; padding: 20px; border-radius: 8px; border: 1px solid #333; }
-    .login-form input { background: #333; border: none; color: #fff; text-align: center; font-size: 18px; letter-spacing: 4px; margin-bottom: 15px; }
-    .login-form button { width: 100%; background: #e50914; color: #fff; padding: 12px; font-size: 16px; font-weight: bold; border-radius: 4px; }
-    
-    .logout-btn { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); background: #e50914; color: #fff; border: none; padding: 8px 14px; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer; display: none; }
-    
-    /* 📋 캡처 붙여넣기 이미지 대기 구역 스타일 */
-    .paste-preview-zone { margin-top: 10px; display: none; background: #f8fafc; padding: 12px; border: 2px dashed #cbd5e1; border-radius: 8px; text-align: center; }
-    .paste-preview-zone img { max-height: 180px; border-radius: 6px; border: 1px solid #e2e8f0; margin-top: 5px; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>우리 가족 메모장 로그인</title>
+    <style>
+        body {
+            background-color: #141414;
+            color: #ffffff;
+            font-family: 'Noto Sans KR', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .login-container {
+            text-align: center;
+        }
+        h1 {
+            font-size: 44px;
+            font-weight: 500;
+            margin-bottom: 10px;
+            letter-spacing: -1px;
+        }
+        .subtitle {
+            font-size: 18px;
+            color: #808080;
+            margin-bottom: 40px;
+        }
+        .profile-list {
+            display: flex;
+            justify-content: center;
+            gap: 25px;
+            flex-wrap: wrap;
+        }
+        .profile-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            width: 130px;
+        }
+        .avatar-box {
+            width: 120px;
+            height: 120px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 60px;
+            transition: transform 0.2s ease, border 0.2s ease;
+            border: 3px solid transparent;
+        }
+        /* 프로필별 배경색 지정 (기존 배지 스타일 반영) */
+        .papa   { background-color: #fde047; }
+        .mama   { background-color: #fca5a5; }
+        .son1   { background-color: #93c5fd; }
+        .son2   { background-color: #94a3b8; }
+
+        .profile-card:hover .avatar-box {
+            transform: scale(1.05);
+            border: 3px solid #ffffff;
+        }
+        .profile-name {
+            margin-top: 15px;
+            font-size: 16px;
+            color: #808080;
+            transition: color 0.2s ease;
+        }
+        .profile-card:hover .profile-name {
+            color: #ffffff;
+        }
+    </style>
 </head>
 <body>
 
-<div id="passwordOverlay">
-  <div class="password-box">
-    <h2 style="color: #fff; border: none; font-size: 26px; font-weight: 500; margin: 0;">우리 가족 메모장 로그인</h2>
-    <p style="color: #666; font-size: 14px; margin-top: 5px;">사용하실 프로필을 선택해 주세요.</p>
-    
-    <div class="profile-list" id="profileList">
-      <div class="profile-card" onclick="selectProfile('아빠')">
-        <div class="profile-img img-아빠">👨</div>
-        <div class="profile-name">아빠</div>
-      </div>
-      <div class="profile-card" onclick="selectProfile('엄마')">
-        <div class="profile-img img-엄마">👩</div>
-        <div class="profile-name">엄마</div>
-      </div>
-      <div class="profile-card" onclick="selectProfile('아들1')">
-        <div class="profile-img img-아들1">👦</div>
-        <div class="profile-name">아들1</div>
-      </div>
-      <div class="profile-card" onclick="selectProfile('아들2')">
-        <div class="profile-img img-아들2">🧔</div>
-        <div class="profile-name">아들2</div>
-      </div>
-      <div class="profile-card" onclick="selectProfile('키즈')">
-        <div class="profile-img img-키즈">👶</div>
-        <div class="profile-name">키즈</div>
-      </div>
+<div class="login-container">
+    <h1>우리 가족 메모장 로그인</h1>
+    <div class="subtitle">사용하실 프로필을 선택해 주세요.</div>
+
+    <div class="profile-list">
+        <div class="profile-card" onclick="selectProfile('아빠')">
+            <div class="avatar-box papa">👨</div>
+            <div class="profile-name">아빠</div>
+        </div>
+        <div class="profile-card" onclick="selectProfile('엄마')">
+            <div class="avatar-box mama">👩</div>
+            <div class="profile-name">엄마</div>
+        </div>
+        <div class="profile-card" onclick="selectProfile('아들1')">
+            <div class="avatar-box son1">👦</div>
+            <div class="profile-name">아들1</div>
+        </div>
+        <div class="profile-card" onclick="selectProfile('아들2')">
+            <div class="avatar-box son2">🧑</div>
+            <div class="profile-name">아들2</div>
+        </div>
     </div>
-    
-    <div class="login-form" id="loginForm">
-      <h3 id="selectedUserTitle" style="margin-top:0; color:#fff;"></h3>
-      <input id="pwdInput" type="password" placeholder="비밀번호 입력" onkeyup="if(window.event.keyCode==13){checkPassword()}">
-      <button onclick="checkPassword()">확인 완료</button>
-      <button onclick="cancelLogin()" class="btn-cancel" style="width:100%; margin-top:8px; background:#444; color:#fff;">뒤로가기</button>
-    </div>
-  </div>
 </div>
 
-<header>
-  <h1>우리 가족 실시간 공유 메모장 👨‍👩‍👧‍👦</h1>
-  <button id="logoutBtn" class="logout-btn" onclick="logoutFamily()">로그아웃 (계정 전환)</button>
-</header>
-
-<main id="memoMain">
-  <section class="section" style="background: #fdfdfd; padding: 20px; border-radius: 10px; border: 1px solid #e4e6eb;">
-    <h2>✍️ 메모 기록하기</h2>
-    <p style="margin: 0 0 15px 0; font-size: 13px; color: #4a5568;">현재 [<span id="currentUserSpan" style="font-weight: bold; text-decoration: underline;"></span>] 계정으로 연결되어 있습니다.</p>
-    
-    <div class="form-group">
-      <label>메모 성격 설정</label>
-      <select id="typeSelect" onchange="toggleFormFields()">
-        <option value="general">일반 공지 / 메모</option>
-        <option value="shopping">🛒 실시간 장보기 / 심부름</option>
-      </select>
-    </div>
-
-    <div class="form-group">
-      <label>제목</label>
-      <input id="titleInput" type="text" placeholder="예: 주말 가족 모임 시간, 마트에서 살 것">
-    </div>
-    
-    <div class="form-group" id="shoppingField" style="display: none;">
-      <label>살 물건 / 심부름 내용</label>
-      <input id="todoInput" type="text" placeholder="예: 두부 1모, 삼겹살 600g">
-    </div>
-    
-    <div class="form-group" id="contentField">
-      <label>상세 내용</label>
-      <textarea id="contentInput" rows="3" placeholder="가족들에게 전달할 세부 내용을 적어주세요. (💡여기에 커서를 두고 이미지를 Ctrl+V로 붙여넣을 수 있습니다.)"></textarea>
-    </div>
-    
-    <div class="form-group">
-      <div id="previewZone" class="paste-preview-zone">
-        <p style="margin:0 0 5px 0; font-size:13px; color:#059669; font-weight:bold;">📋 캡처된 이미지가 대기 중입니다! (저장 버튼 누르면 자동 저장)</p>
-        <img id="previewImg" src="" alt="미리보기">
-        <br><button onclick="removePasteImage()" class="btn-cancel" style="padding: 4px 10px; margin-top: 5px; font-size: 12px;">파일 삭제</button>
-      </div>
-    </div>
-    
-    <div class="btn-container">
-      <button id="saveBtn" class="btn-save" onclick="saveItem()">저장하기</button>
-      <button id="cancelBtn" class="btn-cancel" onclick="clearForm()" style="display:none;">수정 취소</button>
-    </div>
-    <span id="editInfo" class="meta" style="color: #e50914;"></span>
-  </section>
-
-  <section class="section">
-    <h2>📌 공유 보드판 (최신순)</h2>
-    <ul id="itemList"></ul>
-  </section>
-</main>
-
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-  import { getDatabase, ref, push, update, remove, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-  import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
-
-  const FAMILY_PASSWORDS = {
-    "아빠": "Z1234아빠@",
-    "엄마": "Z1234엄마@",
-    "아들1": "Z1234아들1@",
-    "아들2": "Z1234아들2@",
-    "키즈": "1234"
-  }; 
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyD8hMqiHc43UppvEh3IaqIAo4qlbuNl_so",
-    authDomain: "family-memo-9c3dc.firebaseapp.com",
-    databaseURL: "https://family-memo-9c3dc-default-rtdb.firebaseio.com",
-    projectId: "family-memo-9c3dc",
-    storageBucket: "family-memo-9c3dc.firebasestorage.app",
-    messagingSenderId: "558231618973",
-    appId: "1:558231618973:web:8eba231ac20a8bd38cdb74"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-  const storage = getStorage(app); 
-  const itemsRef = ref(db, 'family_memos');
-
-  let items = []; 
-  let editingKey = null; 
-  let selectedUser = null;
-  let tempImageFile = null; 
-
-  // 📋 화면 아무 곳에서나 Ctrl+V로 이미지 클립보드 복사 감지
-  document.addEventListener('paste', function (e) {
-    const clipboardItems = (e.clipboardData || e.originalEvent.clipboardData).items;
-    for (let i = 0; i < clipboardItems.length; i++) {
-      if (clipboardItems[i].type.indexOf('image') !== -1) {
-        const blob = clipboardItems[i].
+<script>
+    // 프로필 버튼을 눌렀을 때 작동하는 함수 (반응형
