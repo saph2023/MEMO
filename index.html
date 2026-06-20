@@ -21,7 +21,7 @@
             margin: 0;
         }
         
-        /* [기존 양식] 로그인 / 프로필 선택 화면 */
+        /* 로그인 / 프로필 선택 화면 */
         .login-container {
             text-align: center;
         }
@@ -79,7 +79,7 @@
             color: #ffffff;
         }
 
-        /* [기존 양식] 메모장 본문 영역 */
+        /* 메모장 본문 영역 */
         .memo-container {
             display: none;
             width: 90%;
@@ -180,7 +180,6 @@
             line-height: 1.5;
         }
         
-        /* 화면에 출력되는 이미지 스타일 */
         .memo-image {
             max-width: 100%;
             border-radius: 6px;
@@ -188,7 +187,7 @@
             display: block;
         }
 
-        /* 넷플릭스 스타일 작성자 배지 양식 */
+        /* 넷플릭스 스타일 작성자 배지 */
         .author-badge { 
             padding: 3px 8px; 
             border-radius: 4px; 
@@ -247,7 +246,7 @@
     <p style="color: #aaa; margin-bottom: 20px;">우리 가족이 함께 공유하는 실시간 공간입니다.</p>
     
     <div class="input-box">
-        <input type="text" id="memoInput" placeholder="메모 입력 혹은 캡처본을 여기에 붙여넣기(Ctrl+V) 하세요..." onpaste="handlePaste(event)">
+        <input type="text" id="memoInput" placeholder="메모 입력 혹은 캡처본을 여기에 붙여넣기(Ctrl+V) 하세요...">
         
         <div class="preview-area" id="previewArea">
             <button class="cancel-preview" onclick="clearPreview()">X</button>
@@ -255,7 +254,7 @@
             <div style="font-size: 12px; color: #aaa; margin-top: 5px;">캡처된 이미지가 감지되었습니다.</div>
         </div>
 
-        <button id="submitBtn" onclick="saveMemoWithCapturedImage()">메모 등록하기</button>
+        <button id="submitBtn" onclick="saveMemo()">메모 등록하기</button>
     </div>
 
     <div class="memo-list" id="memoListArea">
@@ -277,7 +276,7 @@
     let currentWriter = ""; 
     let pastedFile = null; 
 
-    // 🔒 요청하신 정확한 비밀번호 양식 반영 완료
+    // 🔒 지정 비밀번호 매칭 (Z1234이름@)
     function enterMemoApp(name) {
         const isVerified = sessionStorage.getItem("verified_" + name);
 
@@ -285,7 +284,6 @@
             const password = prompt(name + " 프로필의 비밀번호를 입력하세요.");
             
             let isCorrect = false;
-            // 🔒 요청하신 정답 비밀번호 조건문 매칭
             if (name === '아빠' && password === 'Z1234아빠@') isCorrect = true;
             else if (name === '엄마' && password === 'Z1234엄마@') isCorrect = true;
             else if (name === '아들1' && password === 'Z1234아들1@') isCorrect = true;
@@ -307,10 +305,12 @@
         loadMemos();
     }
 
-    // 📋 클립보드 캡처 붙여넣기 기능 (Ctrl + V)
-    function handlePaste(event) {
-        const items = (event.clipboardData || event.originalEvent.clipboardData).items;
-        
+    // 📋 클립보드 캡처 붙여넣기 모니터링 (안정성 강화)
+    document.addEventListener('paste', function (event) {
+        // 프로필 안 고르고 메인화면일 때는 작동 방지
+        if (!currentWriter) return;
+
+        const items = (event.clipboardData || window.clipboardData).items;
         for (let i = 0; i < items.length; i++) {
             if (items[i].type.indexOf("image") !== -1) {
                 const file = items[i].getAsFile();
@@ -322,12 +322,10 @@
                     document.getElementById('previewArea').style.display = 'block';
                 };
                 reader.readAsDataURL(file);
-                
-                event.preventDefault();
                 break;
             }
         }
-    }
+    });
 
     function clearPreview() {
         pastedFile = null;
@@ -335,5 +333,103 @@
         document.getElementById('previewImg').src = "";
     }
 
-    // 파일 업로드 및 데이터베이스 등록
-    function saveMemoWithCapturedImage()
+    // 🚀 통합 등록 처리 함수 (버튼 에러 완벽 차단)
+    function saveMemo() {
+        const memoInput = document.getElementById('memoInput');
+        const submitBtn = document.getElementById('submitBtn');
+        
+        const text = memoInput.value.trim();
+        const file = pastedFile; 
+        
+        if (text === "" && !file) return;
+
+        submitBtn.disabled = true;
+        submitBtn.innerText = "업로드 중...";
+
+        if (file) {
+            const fileName = "capture_" + Date.now() + ".png";
+            const storageRef = storage.ref('images/' + fileName);
+            
+            storageRef.put(file).then((snapshot) => {
+                return snapshot.ref.getDownloadURL();
+            }).then((url) => {
+                writeToDatabase(text, url);
+            }).catch((error) => {
+                alert("이미지 업로드에 실패했습니다. (Storage 규칙을 활성화하셨는지 확인해 주세요): " + error.message);
+                submitBtn.disabled = false;
+                submitBtn.innerText = "메모 등록하기";
+            });
+        } else {
+            writeToDatabase(text, "");
+        }
+    }
+
+    function writeToDatabase(text, imgUrl) {
+        const memoInput = document.getElementById('memoInput');
+        const submitBtn = document.getElementById('submitBtn');
+
+        database.ref('memos').push({
+            writer: currentWriter,
+            content: text,
+            imageUrl: imgUrl,
+            timestamp: Date.now()
+        }).then(() => {
+            memoInput.value = "";
+            clearPreview(); 
+            submitBtn.disabled = false;
+            submitBtn.innerText = "메모 등록하기";
+        }).catch((error) => {
+            alert("데이터 저장 실패: " + error.message);
+            submitBtn.disabled = false;
+            submitBtn.innerText = "메모 등록하기";
+        });
+    }
+
+    // 데이터 수신 및 상단 정렬
+    function loadMemos() {
+        database.ref('memos').on('value', (snapshot) => {
+            const listArea = document.getElementById('memoListArea');
+            listArea.innerHTML = ""; 
+
+            const data = snapshot.val();
+            if (!data) {
+                listArea.innerHTML = '<div class="no-memo">아직 작성된 메모가 없습니다.</div>';
+                return;
+            }
+
+            Object.keys(data).forEach((key) => {
+                const memo = data[key];
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'memo-item';
+                
+                const imgTag = memo.imageUrl ? `<img src="${memo.imageUrl}" class="memo-image" alt="가족 업로드 이미지">` : '';
+                
+                itemDiv.innerHTML = `
+                    <div class="memo-header">
+                        <span class="author-badge badge-${memo.writer}">${memo.writer}</span>
+                        <button class="delete-btn" onclick="deleteMemo('${key}', '${memo.writer}')">❌</button>
+                    </div>
+                    <div class="memo-text">${memo.content}</div>
+                    ${imgTag}
+                `;
+                
+                listArea.insertBefore(itemDiv, listArea.firstChild);
+            });
+        });
+    }
+
+    // 🔒 본인 글만 삭제 검증
+    function deleteMemo(key, writerName) {
+        if (currentWriter !== writerName) {
+            alert("본인이 작성한 메모만 삭제할 수 있습니다.");
+            return; 
+        }
+
+        if (confirm("이 메모를 정말 삭제하시겠습니까?")) {
+            database.ref('memos/' + key).remove();
+        }
+    }
+</script>
+
+</body>
+</html>
