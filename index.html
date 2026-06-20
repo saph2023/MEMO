@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>우리 가족 메모장</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
     <style>
         body {
             background-color: #141414;
@@ -12,15 +16,13 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
-            overflow: hidden;
         }
         
         /* 1. 로그인 화면 스타일 */
         .login-container {
             text-align: center;
-            transition: opacity 0.5s ease;
         }
         h1 {
             font-size: 44px;
@@ -78,23 +80,93 @@
 
         /* 2. 실제 메모장 본문 화면 스타일 (처음에는 숨겨둠) */
         .memo-container {
-            display: none; /* 처음에 숨김 */
+            display: none;
             width: 90%;
             max-width: 600px;
             text-align: center;
-            animation: fadeIn 0.5s ease forwards;
+            padding: 20px 0;
         }
-        .memo-box {
+        .welcome-title {
+            font-size: 32px;
+            margin-bottom: 5px;
+        }
+        
+        /* 메모 입력창 구역 */
+        .input-box {
+            display: flex;
+            gap: 10px;
+            margin: 25px 0;
+        }
+        .input-box input {
+            flex: 1;
+            padding: 15px;
+            border-radius: 8px;
+            border: none;
+            background-color: #333;
+            color: white;
+            font-size: 16px;
+        }
+        .input-box button {
+            padding: 0 25px;
+            border-radius: 8px;
+            border: none;
+            background-color: #e50914; /* 넷플릭스 레드 */
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .input-box button:hover {
+            background-color: #b81d24;
+        }
+
+        /* 메모 리스트 구역 */
+        .memo-list {
             background-color: #222;
             padding: 20px;
             border-radius: 12px;
-            margin-top: 20px;
             min-height: 200px;
             text-align: left;
         }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        .memo-item {
+            background-color: #333;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .memo-text {
+            font-size: 16px;
+            word-break: break-all;
+        }
+        /* 프로필 이름표 배지 스타일 */
+        .badge {
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 11px;
+            margin-right: 8px;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .badge-아빠 { background: #fde047; color: #854d0e; }
+        .badge-엄마 { background: #fca5a5; color: #991b1b; }
+        .badge-아들1 { background: #93c5fd; color: #1e40af; }
+        .badge-아들2 { background: #94a3b8; color: #1e293b; }
+
+        .delete-btn {
+            background: none;
+            border: none;
+            color: #ff6b6b;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .no-memo {
+            color: #666;
+            text-align: center;
+            margin-top: 80px;
         }
     </style>
 </head>
@@ -125,28 +197,34 @@
 </div>
 
 <div class="memo-container" id="memoScreen">
-    <h2 id="welcomeMessage">○○ 님의 가족 메모장</h2>
-    <p style="color: #aaa;">이제 파이어베이스에 데이터를 쓰고 읽을 수 있습니다!</p>
+    <h2 class="welcome-title" id="welcomeMessage">❤️ 가족 메모장</h2>
+    <p style="color: #aaa; margin: 0;">우리 가족이 함께 공유하는 실시간 공간입니다.</p>
     
-    <div class="memo-box">
-        <p style="color: #666;">아직 작성된 메모가 없습니다.</p>
+    <div class="input-box">
+        <input type="text" id="memoInput" placeholder="가족에게 남길 메모를 입력하세요..." onkeypress="if(window.event.keyCode==13){saveMemo()}">
+        <button onclick="saveMemo()">등록</button>
+    </div>
+
+    <div class="memo-list" id="memoListArea">
+        <div class="no-memo">아직 작성된 메모가 없습니다.</div>
     </div>
 </div>
 
 <script>
-    // 프로필을 누르면 실행되는 함수
-    function enterMemoApp(name) {
-        // 1. 로그인 화면을 숨깁니다.
-        document.getElementById('loginScreen').style.display = 'none';
-        
-        // 2. 메모장 화면을 보여줍니다.
-        const memoScreen = document.getElementById('memoScreen');
-        memoScreen.style.display = 'block';
-        
-        // 3. 선택한 프로필 이름으로 상단 환영 문구를 변경합니다.
-        document.getElementById('welcomeMessage').innerText = "❤️ " + name + " 님의 가족 메모장";
-    }
-</script>
+    // ⚠️ [필수 설정] 파이어베이스 연결 정보입니다.
+    // 기존에 발급받으신 콘솔 설정을 그대로 적어주시면 됩니다.
+    const firebaseConfig = {
+        databaseURL: "https://family-memo-9c3dc-default-rtdb.firebaseio.com" // 파이어베이스 데이터베이스 URL 주소
+    };
+    
+    // 파이어베이스 초기화
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
 
-</body>
-</html>
+    let currentWriter = ""; // 현재 로그인한 사용자 저장 변수
+
+    // 프로필 누르면 진입하는 함수
+    function enterMemoApp(name) {
+        currentWriter = name; // 누가 썼는지 기록하기 위함
+        
+        document.getElementById('loginScreen').
