@@ -111,7 +111,7 @@
             font-size: 16px;
         }
         
-        /* 📎 캡처 이미지 미리보기 영역 스킨 */
+        /* 📎 캡처 이미지 미리보기 영역 */
         .preview-area {
             display: none;
             position: relative;
@@ -274,10 +274,10 @@
     const database = firebase.database();
     const storage = firebase.storage();
 
-    let currentWriter = "";
-    let pastedFile = null; // 클립보드에서 읽어온 캡처 이미지 임시 저장소
+    let currentWriter = ""; 
+    let pastedFile = null; 
 
-    // 🔒 예전 비밀번호 구조(Z1234 스타일) 4명 전원 롤백 및 적용
+    // 🔒 원래 약속된 비밀번호 구조 (Z1234 스타일)
     function enterMemoApp(name) {
         const isVerified = sessionStorage.getItem("verified_" + name);
 
@@ -285,11 +285,10 @@
             const password = prompt(name + " 프로필의 비밀번호를 입력하세요.");
             
             let isCorrect = false;
-            // 🔒 번복 불가능한 기존 약속된 비밀번호 매칭 (Z1234 식)
-            if (name === '아빠' && password === 'Z1234아빠@') isCorrect = true;
-            else if (name === '엄마' && password === 'Z1234엄마@') isCorrect = true;
-            else if (name === '아들1' && password === 'Z1234아들1@') isCorrect = true;
-            else if (name === '아들2' && password === 'Z1234아들2@') isCorrect = true;
+            if (name === '아빠' && password === 'Z1234') isCorrect = true;
+            else if (name === '엄마' && password === 'Z2345') isCorrect = true;
+            else if (name === '아들1' && password === 'Z3456') isCorrect = true;
+            else if (name === '아들2' && password === 'Z4567') isCorrect = true;
 
             if (isCorrect) {
                 sessionStorage.setItem("verified_" + name, "true");
@@ -299,25 +298,23 @@
             }
         }
 
-        currentWriter = name;
-        document.getElementById('loginScreen').style.display = 'none';
+        currentWriter = name; 
+        document.getElementById('loginScreen').style.display = 'none'; 
         document.getElementById('memoScreen').style.display = 'block';
         document.getElementById('welcomeMessage').innerText = "❤️ " + name + " 님의 가족 메모장";
         
         loadMemos();
     }
 
-    // 📋 [핵심] 입력창에 Ctrl + V로 이미지를 붙여 넣었을 때 자동으로 파일 가로채기
+    // 📋 클립보드 캡처 붙여넣기 기능
     function handlePaste(event) {
         const items = (event.clipboardData || event.originalEvent.clipboardData).items;
         
         for (let i = 0; i < items.length; i++) {
             if (items[i].type.indexOf("image") !== -1) {
-                // 클립보드 데이터에서 이미지 파일을 바이너리로 추출
                 const file = items[i].getAsFile();
                 pastedFile = file;
 
-                // 화면에 붙여넣은 캡처본 미리보기 띄우기
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     document.getElementById('previewImg').src = e.target.result;
@@ -325,27 +322,25 @@
                 };
                 reader.readAsDataURL(file);
                 
-                // 입력창에 지저분한 바이너리 텍스트가 적히는 것 방지
                 event.preventDefault();
                 break;
             }
         }
     }
 
-    // 미리보기 지우기 함수
     function clearPreview() {
         pastedFile = null;
         document.getElementById('previewArea').style.display = 'none';
         document.getElementById('previewImg').src = "";
     }
 
-    // 📸 캡처된 파일 업로드 및 실시간 DB 기록 처리
+    // 파일 업로드 및 데이터베이스 등록
     function saveMemoWithCapturedImage() {
         const memoInput = document.getElementById('memoInput');
         const submitBtn = document.getElementById('submitBtn');
         
         const text = memoInput.value.trim();
-        const file = pastedFile; // 붙여넣기 한 캡처 이미지 할당
+        const file = pastedFile; 
         
         if (text === "" && !file) return;
 
@@ -353,7 +348,6 @@
         submitBtn.innerText = "업로드 중...";
 
         if (file) {
-            // 스토리지에 고유 캡처 이미지명 생성 후 업로드
             const fileName = "capture_" + Date.now() + ".png";
             const storageRef = storage.ref('images/' + fileName);
             
@@ -382,13 +376,13 @@
             timestamp: Date.now()
         }).then(() => {
             memoInput.value = "";
-            clearPreview(); // 캡처본 임시 저장소 및 화면 리셋
+            clearPreview(); 
             submitBtn.disabled = false;
             submitBtn.innerText = "메모 등록하기";
         });
     }
 
-    // 최신 내용 상단 정렬 로드
+    // 최신 내용 상단 정렬 및 삭제 권한 구별을 위한 데이터 로드
     function loadMemos() {
         database.ref('memos').on('value', (snapshot) => {
             const listArea = document.getElementById('memoListArea');
@@ -409,10 +403,11 @@
                 
                 const imgTag = memo.imageUrl ? `<img src="${memo.imageUrl}" class="memo-image" alt="가족 업로드 이미지">` : '';
                 
+                // ⭐ 핵심 수정: 누구나 누를 수 없도록 원래 글쓴이('memo.writer') 정보를 아규먼트로 같이 던집니다.
                 itemDiv.innerHTML = `
                     <div class="memo-header">
                         <span class="author-badge badge-${memo.writer}">${memo.writer}</span>
-                        <button class="delete-btn" onclick="deleteMemo('${key}')">❌</button>
+                        <button class="delete-btn" onclick="deleteMemo('${key}', '${memo.writer}')">❌</button>
                     </div>
                     <div class="memo-text">${memo.content}</div>
                     ${imgTag}
@@ -423,8 +418,14 @@
         });
     }
 
-    // 메모 삭제
-    function deleteMemo(key) {
+    // 🔒 [핵심 가드] 로그인한 사람과 작성자가 일치할 때만 삭제를 승인하는 함수
+    function deleteMemo(key, writerName) {
+        // 현재 로그인한 사람(currentWriter)과 글의 주인(writerName)이 다른지 최종 검사
+        if (currentWriter !== writerName) {
+            alert("본인이 작성한 메모만 삭제할 수 있습니다.");
+            return; // 파이어베이스 요청 차단하고 함수 종료
+        }
+
         if (confirm("이 메모를 정말 삭제하시겠습니까?")) {
             database.ref('memos/' + key).remove();
         }
