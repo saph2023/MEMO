@@ -164,7 +164,7 @@
             display: block;
         }
 
-        /* 넷플릭스 스타일 작성자 배지 양식 완벽 복원 */
+        /* 넷플릭스 스타일 작성자 배지 양식 */
         .author-badge { 
             padding: 3px 8px; 
             border-radius: 4px; 
@@ -246,25 +246,33 @@
 
     let currentWriter = "";
 
-    // 🔒 프로필 입장 처리 함수 (비밀번호 규칙 주입)
+    // 🔒 4명 모두에게 각자의 비밀번호 규칙 적용
     function enterMemoApp(name) {
         // 1. 이미 비번을 맞췄던 세션 기록이 있는지 체크
         const isVerified = sessionStorage.getItem("verified_" + name);
 
-        // 2. 아빠 프로필이면서 이전에 비번 인증을 완료하지 않은 경우에만 비번 입력창을 띄움
-        if (name === '아빠' && !isVerified) {
-            const password = prompt("아빠 프로필의 비밀번호를 입력하세요.");
+        // 2. 이전에 인증을 완료하지 않은 경우에만 비번 입력창 작동
+        if (!isVerified) {
+            // 가족원 이름에 맞게 안내 메시지 출력
+            const password = prompt(name + " 프로필의 비밀번호를 입력하세요.");
             
-            if (password === '아빠@') {
-                // 패스워드가 일치하면 현재 탭을 끄기 전까지 비번 입력을 면제하도록 기록
+            // 각자 지정된 비밀번호 규칙 검사
+            let isCorrect = false;
+            if (name === '아빠' && password === '아빠@') isCorrect = true;
+            else if (name === '엄마' && password === '엄마@') isCorrect = true;
+            else if (name === '아들1' && password === '아들1@') isCorrect = true;
+            else if (name === '아들2' && password === '아들2@') isCorrect = true;
+
+            if (isCorrect) {
+                // 패스워드가 맞으면 해당 브라우저 탭을 끄기 전까지 인증 상태 유지
                 sessionStorage.setItem("verified_" + name, "true");
             } else {
                 alert("비밀번호가 잘못되었습니다.");
-                return; // 문 안 열어주고 중단
+                return; // 진입 차단
             }
         }
 
-        // 인증 통과 시 화면 전환 진행
+        // 3. 인증 통과 혹은 세션 유지 중일 때 화면 전환
         currentWriter = name;
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('memoScreen').style.display = 'block';
@@ -323,7 +331,7 @@
         });
     }
 
-    // 최신 내용이 무조건 맨 위로 정렬되게 동기화 로드
+    // 최신 내용 상단 정렬 로드
     function loadMemos() {
         database.ref('memos').on('value', (snapshot) => {
             const listArea = document.getElementById('memoListArea');
@@ -353,7 +361,6 @@
                     ${imgTag}
                 `;
                 
-                // 최신 게시글 상단 정렬
                 listArea.insertBefore(itemDiv, listArea.firstChild);
             });
         });
