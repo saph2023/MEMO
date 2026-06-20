@@ -5,7 +5,7 @@
   <title>우리 가족 실시간 공유 메모장</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 0; padding: 0; background:#f5f5f5; }
-    header { background:#222; color:#fff; padding:15px; text-align:center; }
+    header { background:#222; color:#fff; padding:15px; text-align:center; position: relative; }
     main { max-width:800px; margin:20px auto; background:#fff; padding:20px; border-radius:8px; display: none; }
     h2 { margin-top:0; }
     .section { margin-bottom:25px; border-bottom:1px solid #ddd; padding-bottom:15px; }
@@ -15,11 +15,17 @@
     ul { padding-left:18px; }
     li { margin-bottom:12px; }
     .meta { font-size:12px; color:#666; }
+    /* 작성자 전용 색상 칩 스타일 */
+    .author-badge { background: #eee; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; margin-right: 5px; color: #333; }
     
     #passwordOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f5f5f5; display: flex; justify-content: center; align-items: center; z-index: 9999; }
     .password-box { background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; max-width: 350px; width: 90%; }
     .password-box input { margin: 15px 0; text-align: center; font-size: 18px; letter-spacing: 3px; }
     .password-box button { width: 100%; padding: 10px; background: #222; color: #fff; border: none; font-size: 16px; border-radius: 4px; }
+    
+    /* 계정 로그아웃(전환)용 우측 상단 버튼 */
+    .logout-btn { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); background: #555; color: #fff; border: none; padding: 5px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; }
+    .logout-btn:hover { background: #777; }
   </style>
 </head>
 <body>
@@ -35,10 +41,13 @@
 
 <header>
   <h1>우리 가족 실시간 공유 메모장 👨‍👩‍👧‍👦</h1>
+  <button class="logout-btn" onclick="logoutFamily()">비번 다시입력</button>
 </header>
 <main id="memoMain">
   <section class="section">
     <h2>항목 등록 / 수정</h2>
+    <p style="margin: 0; font-size: 14px; color: #0066cc; font-weight: bold;">✍️ 현재 [<span id="currentUserSpan"></span>] 계정으로 작성 중</p>
+    
     <label>제목</label>
     <input id="titleInput" type="text" placeholder="예: 장보기 목록, 가족 공지 등">
     <label>내용</label>
@@ -57,8 +66,15 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
   import { getDatabase, ref, push, update, remove, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-  // 🔑 여기에 사용할 우리 가족만의 비밀번호를 적어주세요! (예: "1234")
-  const FAMILY_PASSWORD = "Z1234Z1234@"; 
+  // 🔑 가족 구성원별로 사용할 비밀번호를 각각 다르게 설정해 주세요!
+  // (원하시는 비밀번호 규칙으로 자유롭게 수정해서 쓰시면 됩니다.)
+  const FAMILY_PASSWORDS = {
+    "아빠": "Z1234아빠@",
+    "엄마": "Z1234엄마@",
+    "아들1": "Z1234아들1@",
+    "아들2": "Z1234아들2@",
+    "키즈": "1234"
+  }; 
 
   const firebaseConfig = {
     apiKey: "AIzaSyD8hMqiHc43UppvEh3IaqIAo4qlbuNl_so",
@@ -70,26 +86,50 @@
     appId: "1:558231618973:web:8eba231ac20a8bd38cdb74"
   };
 
-  // 암호 체크 함수 (localStorage를 써서 기기 자체에 반영구적으로 로그인 상태 유지)
+  // 암호 체크 함수
   window.checkPassword = function() {
     const inputPwd = document.getElementById('pwdInput').value;
-    if (inputPwd === FAMILY_PASSWORD) {
+    
+    // 입력된 패스워드가 매칭되는 사용자가 있는지 확인
+    let foundUser = null;
+    for (const [user, password] of Object.entries(FAMILY_PASSWORDS)) {
+      if (inputPwd === password) {
+        foundUser = user;
+        break;
+      }
+    }
+
+    if (foundUser) {
       document.getElementById('passwordOverlay').style.display = 'none';
       document.getElementById('memoMain').style.display = 'block';
+      document.getElementById('currentUserSpan').textContent = foundUser;
       
-      // 창을 닫아도 기억하도록 변경 완료!
+      // 기기에 인증 여부와 현재 사용자를 각각 기억시킴
       localStorage.setItem('family_memo_auth', 'passed');
+      localStorage.setItem('family_memo_user', foundUser);
     } else {
-      alert('비밀번호가 틀렸습니다! 우리 가족만 이용 가능합니다.');
+      alert('비밀번호가 틀렸습니다! 가족 비밀번호를 확인해 주세요.');
       document.getElementById('pwdInput').value = '';
       document.getElementById('pwdInput').focus();
     }
   }
 
-  // 이전에 비밀번호를 맞췄던 기기라면 바로 자동 통과!
+  // 기기 로그아웃 및 비번 초기화 함수 추가
+  window.logoutFamily = function() {
+    if(confirm("인증을 해제하고 비밀번호를 다시 입력하시겠습니까?")) {
+      localStorage.removeItem('family_memo_auth');
+      localStorage.removeItem('family_memo_user');
+      location.reload();
+    }
+  }
+
+  // 이전에 인증에 성공했던 기기라면 바로 자동 로그인 및 사용자 정보 적용
   if (localStorage.getItem('family_memo_auth') === 'passed') {
     document.getElementById('passwordOverlay').style.display = 'none';
     document.getElementById('memoMain').style.display = 'block';
+    
+    const savedUser = localStorage.getItem('family_memo_user') || '가족';
+    document.getElementById('currentUserSpan').textContent = savedUser;
   }
 
   const app = initializeApp(firebaseConfig);
@@ -110,6 +150,9 @@
     const contentEl = document.getElementById('contentInput');
     const title = titleEl.value.trim();
     const content = contentEl.value.trim();
+    
+    // 현재 로그인된 사용자를 기억창에서 가져옴 (없으면 무명 '가족'으로 지정)
+    const currentAuthor = localStorage.getItem('family_memo_user') || '가족';
 
     if (!title) {
       alert('제목을 입력하세요.');
@@ -120,10 +163,12 @@
       push(itemsRef, {
         title,
         content,
+        author: currentAuthor, // 🌟 저장할 때 누가 썼는지 데이터 추가
         createdAt: new Date().toISOString(),
         updatedAt: null
       });
     } else {
+      // 수정할 때는 원본 작성자를 바꾸지 않도록 title과 content, 업데이트 시간만 변경
       update(ref(db, `family_memos/${editingKey}`), {
         title,
         content,
@@ -154,10 +199,13 @@
         const li = document.createElement('li');
         const created = formatDate(new Date(item.createdAt));
         const updated = item.updatedAt ? ` / 수정: ${formatDate(new Date(item.updatedAt))}` : '';
+        
+        // 데이터에 작성자(author)가 존재하면 표시하고 없으면 공란 혹은 '가족' 처리
+        const authorText = item.author ? `<span class="author-badge">👤 ${item.author}</span>` : '';
 
         li.innerHTML = `
-          <strong>${item.title}</strong><br>
-          ${item.content}<br>
+          <strong>${item.title}</strong> ${authorText}<br>
+          <div style="margin: 4px 0 6px 0; font-size: 15px; white-space: pre-wrap;">${item.content}</div>
           <span class="meta">생성: ${created}${updated}</span><br>
           <button onclick="editItem('${item.key}')">수정</button>
           <button onclick="deleteItem('${item.key}')">삭제</button>
