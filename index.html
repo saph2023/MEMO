@@ -19,8 +19,75 @@
             align-items: center;
             min-height: 100vh;
             margin: 0;
+            padding-top: 40px; /* 상단 여백 최소화 */
+            box-sizing: border-box;
         }
         
+        /* 📊 [수정] 화면 맨 위 오른쪽 사이드에 딱 고정되는 스토리지 바 */
+        .fixed-storage-header {
+            display: none; /* 로그인 전에는 숨김 */
+            position: fixed;
+            top: 15px;
+            right: 20px;
+            background-color: rgba(34, 34, 34, 0.9);
+            backdrop-filter: blur(6px);
+            border: 1px solid #444;
+            padding: 10px 15px;
+            border-radius: 8px;
+            box-sizing: border-box;
+            z-index: 9999;
+            width: 280px; /* 사이드에 알맞은 아담한 크기 */
+        }
+        .storage-flex-container {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .storage-text-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .storage-text-row span {
+            font-size: 12px;
+            color: #aaa;
+            font-weight: bold;
+        }
+        /* 용량 게이지 바 디자인 */
+        .progress-container {
+            width: 100%;
+            height: 12px; /* 깔끔하게 얇은 두께로 변경 */
+            background-color: #222;
+            border-radius: 6px;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #333;
+        }
+        .progress-bar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #e50914, #ff6b6b);
+            border-radius: 6px;
+            transition: width 0.3s ease;
+        }
+        .progress-text {
+            font-size: 11px;
+            font-weight: bold;
+            color: #ff6b6b;
+        }
+        .refresh-btn {
+            background: none;
+            border: none;
+            color: #666;
+            padding: 0;
+            font-size: 11px;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+        .refresh-btn:hover {
+            color: #aaa;
+        }
+
         /* 로그인 / 프로필 선택 화면 */
         .login-container {
             text-align: center;
@@ -217,6 +284,21 @@
 </head>
 <body>
 
+<div class="fixed-storage-header" id="fixedStorageHeader">
+    <div class="storage-flex-container">
+        <div class="storage-text-row">
+            <span>📊 서버 용량 (5GB)</span>
+            <button onclick="checkStorageUsage()" class="refresh-btn">새로고침</button>
+        </div>
+        <div class="progress-container">
+            <div id="storageProgressBar" class="progress-bar"></div>
+        </div>
+        <div style="text-align: right;">
+            <span id="storageUsageText" class="progress-text">계산 중...</span>
+        </div>
+    </div>
+</div>
+
 <div class="login-container" id="loginScreen">
     <h1>우리 가족 메모장 로그인</h1>
     <div class="subtitle">사용하실 프로필을 선택해 주세요.</div>
@@ -260,18 +342,6 @@
     <div class="memo-list" id="memoListArea">
         <div class="no-memo">아직 작성된 메모가 없습니다.</div>
     </div>
-
-    <div style="background-color: #222; margin-top: 30px; padding: 20px; border-radius: 12px; text-align: left; position: relative;">
-        <h3 style="font-size: 18px; color: #aaa; margin-bottom: 10px;">📊 스토리지 사용 현황 (Spark 무료)</h3>
-        <p style="font-size: 14px; color: #888; margin: 0 0 15px 0; font-weight: normal;">우리 가족이 함께 쓰는 사진 서랍 공간입니다.</p>
-
-        <div style="width: 100%; height: 25px; background-color: #333; border-radius: 15px; position: relative; overflow: hidden; border: 1px solid #444;">
-            <div id="storageProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #e50914, #ff6b6b); border-radius: 15px; transition: width 0.3s ease;"></div>
-            <span id="storageUsageText" style="position: absolute; width: 100%; text-align: center; left: 0; top: 3px; font-size: 14px; font-weight: bold; color: white;">확인 중... / 5GB</span>
-        </div>
-        
-        <button onclick="checkStorageUsage()" style="position: absolute; right: 20px; top: 15px; background: none; border: 1px solid #444; color: #888; padding: 4px 10px; border-radius: 4px; font-size: 11px; cursor: pointer;">새로고침</button>
-    </div>
 </div>
 
 <script>
@@ -312,6 +382,7 @@
         currentWriter = name; 
         document.getElementById('loginScreen').style.display = 'none'; 
         document.getElementById('memoScreen').style.display = 'block';
+        document.getElementById('fixedStorageHeader').style.display = 'block'; // 로그인 시 우측 상단 박스 노출
         document.getElementById('welcomeMessage').innerText = "❤️ " + name + " 님의 가족 메모장";
         
         loadMemos();
@@ -432,7 +503,7 @@
         });
     }
 
-    // 🔒 본인 글만 삭제 검증 + 스토리지 연동 진짜 이미지 삭제
+    // 🔒 본인 글만 삭제 검증 + 스토리지 연동 이미지 삭제
     function deleteMemo(key, writerName, storageFileName) {
         if (currentWriter !== writerName) {
             alert("본인이 작성한 메모만 삭제할 수 있습니다.");
@@ -467,7 +538,7 @@
         const storageUsageText = document.getElementById('storageUsageText');
         const storageProgressBar = document.getElementById('storageProgressBar');
 
-        storageUsageText.innerText = "용량 계산 중...";
+        storageUsageText.innerText = "계산 중...";
 
         const bucketRef = storage.ref('images'); 
 
@@ -486,16 +557,16 @@
                 const usagePercent = (usageGB / totalGB) * 100; 
 
                 if(usageMB < 500) {
-                    storageUsageText.innerText = usageMB.toFixed(2) + " MB / " + totalGB + " GB";
+                    storageUsageText.innerText = usageMB.toFixed(2) + " MB";
                 } else {
-                    storageUsageText.innerText = usageGB.toFixed(2) + " GB / " + totalGB + " GB";
+                    storageUsageText.innerText = usageGB.toFixed(2) + " GB";
                 }
                 
                 storageProgressBar.style.width = Math.min(usagePercent, 100) + "%"; 
             });
         }).catch((error) => {
             console.log("용량 체크 에러:", error);
-            storageUsageText.innerText = "0.00 MB / 5 GB";
+            storageUsageText.innerText = "0.00 MB";
         });
     }
 </script>
