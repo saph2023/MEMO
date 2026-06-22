@@ -9,221 +9,37 @@
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
 
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        body {
-            background-color: #121212;
-            color: #ffffff;
-            font-family: 'Noto Sans KR', sans-serif;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .header-container {
-            width: 100%;
-            max-width: 1400px;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 30px;
-            margin-top: 20px;
-        }
-        .search-box {
-            background-color: #1e1e1e;
-            padding: 15px;
-            border-radius: 8px;
-            width: 250px;
-        }
-        .search-box label {
-            display: block;
-            font-size: 12px;
-            color: #aaaaaa;
-            margin-bottom: 8px;
-        }
-        .search-box input[type="date"] {
-            width: 100%;
-            padding: 8px;
-            background-color: #2c2c2c;
-            border: 1px solid #3d3d3d;
-            color: #ffffff;
-            border-radius: 4px;
-            margin-bottom: 8px;
-            outline: none;
-        }
-        .btn-all {
-            padding: 4px 8px;
-            background-color: #333;
-            color: #ccc;
-            border: none;
-            border-radius: 4px;
-            font-size: 11px;
-            cursor: pointer;
-            float: right;
-        }
-        .main-title {
-            text-align: center;
-            flex-grow: 1;
-        }
-        .main-title h1 {
-            font-size: 28px;
-            font-weight: bold;
-            margin-bottom: 12px;
-        }
-        .main-title p {
-            color: #aaaaaa;
-            font-size: 14px;
-        }
-        .storage-box {
-            background-color: #1e1e1e;
-            padding: 15px;
-            border-radius: 8px;
-            width: 280px;
-            font-size: 12px;
-        }
-        .storage-title {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 8px;
-            color: #aaaaaa;
-        }
-        .storage-bar-bg {
-            width: 100%;
-            height: 6px;
-            background-color: #333;
-            border-radius: 3px;
-            overflow: hidden;
-            margin-bottom: 8px;
-            margin-top: 15px;
-        }
-        .storage-bar-fill {
-            height: 100%;
-            background-color: #e50914;
-            width: 0.1%;
-            transition: width 0.3s ease;
-        }
-        .storage-text {
-            text-align: right;
-            color: #e50914;
-            font-weight: bold;
-            font-size: 12px;
-            margin-top: 5px;
-        }
-        .container {
-            width: 100%;
-            max-width: 700px;
-        }
-        .memo-input-box {
-            background-color: #1e1e1e;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 25px;
-        }
-        textarea {
-            width: 100%;
-            height: 140px;
-            background-color: #2c2c2c;
-            border: 1px solid #3d3d3d;
-            border-radius: 6px;
-            color: #ffffff;
-            padding: 15px;
-            font-size: 14px;
-            resize: none;
-            outline: none;
-            margin-bottom: 15px;
-            line-height: 1.5;
-        }
-        textarea::placeholder {
-            color: #666666;
-        }
-        .btn-submit {
-            width: 100%;
-            background-color: #e50914;
-            color: #ffffff;
-            border: none;
-            padding: 14px;
-            font-size: 16px;
-            font-weight: bold;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-        .memo-list {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            margin-bottom: 40px;
-        }
-        .memo-card {
-            background-color: #1e1e1e;
-            padding: 20px;
-            border-radius: 8px;
-            position: relative;
-        }
-        .memo-author {
-            display: inline-block;
-            background-color: #fbd46d;
-            color: #000000;
-            font-size: 11px;
-            font-weight: bold;
-            padding: 2px 6px;
-            border-radius: 4px;
-            margin-bottom: 12px;
-        }
-        .btn-delete {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: none;
-            border: none;
-            color: #e50914;
-            font-size: 20px;
-            cursor: pointer;
-            line-height: 1;
-        }
-        .memo-text {
-            font-size: 15px;
-            line-height: 1.6;
-            white-space: pre-wrap;
-            word-break: break-all;
-        }
-        .memo-image {
-            max-width: 100%;
-            border-radius: 6px;
-            margin-top: 12px;
-            border: 1px solid #3d3d3d;
-        }
-        .memo-footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 15px;
-            font-size: 12px;
-            color: #666666;
-        }
-        .btn-edit-trigger {
-            background: none;
-            border: none;
-            color: #6cb2eb;
-            cursor: pointer;
-            font-size: 12px;
-        }
-        .bottom-storage-info {
-            width: 100%;
-            max-width: 700px;
-            text-align: right;
-            padding: 20px 0;
-            color: #666666;
-            font-size: 13px;
-        }
-        .bottom-storage-info span {
-            color: #e50914;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background-color: #121212; color: #ffffff; font-family: 'Noto Sans KR', sans-serif; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .header-container { width: 100%; max-width: 1400px; display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; margin-top: 20px; }
+        .search-box { background-color: #1e1e1e; padding: 15px; border-radius: 8px; width: 250px; }
+        .search-box input[type="date"] { width: 100%; padding: 8px; background-color: #2c2c2c; border: 1px solid #3d3d3d; color: #ffffff; border-radius: 4px; margin-bottom: 8px; outline: none; }
+        .btn-all { padding: 4px 8px; background-color: #333; color: #ccc; border: none; border-radius: 4px; font-size: 11px; cursor: pointer; float: right; }
+        .main-title { text-align: center; flex-grow: 1; }
+        .main-title h1 { font-size: 28px; font-weight: bold; margin-bottom: 12px; }
+        .main-title p { color: #aaaaaa; font-size: 14px; }
+        .storage-box { background-color: #1e1e1e; padding: 15px; border-radius: 8px; width: 280px; font-size: 12px; }
+        .storage-title { display: flex; justify-content: space-between; margin-bottom: 8px; color: #aaaaaa; }
+        .storage-bar-bg { width: 100%; height: 6px; background-color: #333; border-radius: 3px; overflow: hidden; margin-bottom: 8px; margin-top: 15px; }
+        .storage-bar-fill { height: 100%; background-color: #e50914; width: 0.1%; transition: width 0.3s ease; }
+        .storage-text { text-align: right; color: #e50914; font-weight: bold; font-size: 12px; margin-top: 5px; }
+        .container { width: 100%; max-width: 700px; }
+        .memo-input-box { background-color: #1e1e1e; padding: 20px; border-radius: 8px; margin-bottom: 25px; }
+        textarea { width: 100%; height: 140px; background-color: #2c2c2c; border: 1px solid #3d3d3d; border-radius: 6px; color: #ffffff; padding: 15px; font-size: 14px; resize: none; outline: none; margin-bottom: 15px; line-height: 1.5; }
+        textarea::placeholder { color: #666666; }
+        .btn-submit { width: 100%; background-color: #e50914; color: #ffffff; border: none; padding: 14px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; }
+        .memo-list { display: flex; flex-direction: column; gap: 20px; margin-bottom: 40px; }
+        .memo-card { background-color: #1e1e1e; padding: 20px; border-radius: 8px; position: relative; }
+        .memo-author { display: inline-block; background-color: #fbd46d; color: #000000; font-size: 11px; font-weight: bold; padding: 2px 6px; border-radius: 4px; margin-bottom: 12px; }
+        .btn-delete { position: absolute; top: 20px; right: 20px; background: none; border: none; color: #e50914; font-size: 20px; cursor: pointer; line-height: 1; }
+        .memo-text { font-size: 15px; line-height: 1.6; white-space: pre-wrap; word-break: break-all; }
+        .memo-image { max-width: 100%; border-radius: 6px; margin-top: 12px; border: 1px solid #3d3d3d; }
+        .memo-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; font-size: 12px; color: #666666; }
+        .btn-edit-trigger { background: none; border: none; color: #6cb2eb; cursor: pointer; font-size: 12px; }
+        .bottom-storage-info { width: 100%; max-width: 700px; text-align: right; padding: 20px 0; color: #666666; font-size: 13px; }
+        .bottom-storage-info span { color: #e50914; }
     </style>
 </head>
 <body>
@@ -244,7 +60,7 @@
 
         <div class="storage-box">
             <div class="storage-title">
-                <span>📊 서버 용량 5기가 넘으면 돈내야 됨 조심 (5GB)</span>
+                <span>📊 서버 용량 제한 (5GB)</span>
                 <span style="cursor:pointer; font-size:11px;" onclick="calculateStorageSize()">새로고침</span>
             </div>
             <div class="storage-bar-bg">
@@ -256,11 +72,11 @@
 
     <div class="container">
         <div class="memo-input-box">
-            <textarea id="memoText" placeholder="메모 입력 혹은 캡처본을 여기에 붙여넣기(Ctrl+V) 하세요...&#10;(엔터를 치면 다음 줄로 바뀝니다. 등록은 Ctrl+Enter)"></textarea>
+            <textarea id="memoText" placeholder="메모 입력 혹은 캡처본을 여기에 붙여넣기(Ctrl+V) 하세요...&#10;(등록은 Ctrl+Enter)"></textarea>
             <button class="btn-submit" onclick="handleMemoSubmit()">메모 등록하기</button>
         </div>
 
-        <div class="memo-list" id="memoList"></div>
+        <div class="memo-list" id="memoList">데이터 불러오는 중...</div>
 
         <div class="bottom-storage-info">
             <span id="bottomStorageText">0.00 MB</span>
@@ -268,110 +84,153 @@
     </div>
 
     <script>
-        // [수정 핵심] 주소 에러 매칭을 원천 차단하기 위해 원본 프로젝트 고유 ID 구조를 강제 수동 동기화하여 연동
+        // [수정 핵심] 아시아 리전 서버 매칭을 위해 projectId를 함께 묶어 명시적 경로 지정
         const firebaseConfig = {
             projectId: "saph2023",
-            databaseURL: "https://saph2023-default-rtdb.asia-southeast1.firebasedatabase.app",
-            storageBucket: "saph2023.appspot.com"
+            databaseURL: "https://saph2023-default-rtdb.asia-southeast1.firebasedatabase.app"
         };
         
         let database = null;
-        let storage = null;
-        let attachedImageBase64 = null; 
 
-        // 파이어베이스 선언부 결함 차단 초기화
         try {
             if (!firebase.apps.length) {
-                const app = firebase.initializeApp(firebaseConfig);
-                // 인스턴스를 도메인 주소로 명시적 강제 고정 호출
-                database = firebase.database(app);
-                storage = firebase.storage(app);
-            } else {
-                database = firebase.database();
-                storage = firebase.storage();
+                firebase.initializeApp(firebaseConfig);
             }
+            database = firebase.database();
         } catch(e) {
-            console.error("파이어베이스 연결부 에러 커스텀 처리:", e);
+            console.error("Firebase 연결 에러:", e);
         }
 
         // 카카오 초기화
         try {
             if (typeof Kakao !== 'undefined' && !Kakao.isInitialized()) {
                 Kakao.init('bfc4502483d1a36707fa47c6d59db619');
-                console.log('카카오 SDK 초기화 완료');
             }
-        } catch (e) {
-            console.error('카카오 SDK 초기화 실패', e);
-        }
-
-        function sendKakaoTalkMessage(memoSnippet) {
-            if (typeof Kakao === 'undefined' || !Kakao.isInitialized()) return;
-            Kakao.API.request({
-                url: '/v2/api/talk/memo/default/send',
-                data: {
-                    template_object: {
-                        object_type: 'text',
-                        text: `📌 가족 메모장에 새 글이 등록되었습니다!\n\n내용: ${memoSnippet}`,
-                        link: {
-                            web_url: 'https://saph2023.github.io/MEMO/index.html',
-                            mobile_web_url: 'https://saph2023.github.io/MEMO/index.html',
-                        },
-                        button_title: '메모장 열기'
-                    }
-                },
-                success: function(response) { console.log('카카오톡 알림 발송 성공'); },
-                fail: function(error) { console.error('카카오톡 알림 발송 실패', error); }
-            });
-        }
+        } catch (e) { console.error('Kakao SDK 로드 실패', e); }
 
         window.onload = function() {
             loadMemosRealtime();
             calculateStorageSize();
-
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('code')) {
-                window.history.replaceState({}, document.title, window.location.pathname);
-                const lastMemo = sessionStorage.getItem('last_posted_memo') || '새로운 메모가 등록되었습니다.';
-                sendKakaoTalkMessage(lastMemo);
-            }
         };
 
-        // 데이터베이스 수신 여부와 완전 별개로 입력창 인터페이스는 항상 정상 표출되도록 격리 설계
         function loadMemosRealtime() {
             const memoListDiv = document.getElementById('memoList');
-            if (!memoListDiv) return;
-
             if (!database) {
-                memoListDiv.innerHTML = '<div style="text-align:center; color:#e50914; padding:20px 0;">⚠️ 파이어베이스 라이브러리 연결에 실패했습니다.</div>';
+                memoListDiv.innerHTML = '<div style="text-align:center; color:#e50914; padding:20px 0;">⚠️ 데이터베이스 연결 실패</div>';
                 return;
             }
 
-            try {
-                database.ref('memos').orderByChild('timestamp').on('value', (snapshot) => {
-                    memoListDiv.innerHTML = '';
-                    const memos = [];
-                    snapshot.forEach((childSnapshot) => {
-                        memos.push({ id: childSnapshot.key, ...childSnapshot.val() });
-                    });
-                    
-                    if (memos.length === 0) {
-                        memoListDiv.innerHTML = '<div style="text-align:center; color:#666; padding:40px 0;">등록된 메모가 없습니다. 첫 메모를 작성해 보세요!</div>';
-                        return;
-                    }
+            database.ref('memos').orderByChild('timestamp').on('value', (snapshot) => {
+                memoListDiv.innerHTML = '';
+                const memos = [];
+                snapshot.forEach((childSnapshot) => {
+                    memos.push({ id: childSnapshot.key, ...childSnapshot.val() });
+                });
+                
+                if (memos.length === 0) {
+                    memoListDiv.innerHTML = '<div style="text-align:center; color:#666; padding:40px 0;">등록된 메모가 없습니다. 첫 메모를 작성해 보세요!</div>';
+                    return;
+                }
 
-                    memos.reverse().forEach((memo) => {
-                        const card = document.createElement('div');
-                        card.className = 'memo-card';
-                        card.setAttribute('data-date', memo.date ? memo.date.substring(0, 11) : '');
+                memos.reverse().forEach((memo) => {
+                    const card = document.createElement('div');
+                    card.className = 'memo-card';
+                    card.setAttribute('data-date', memo.date ? memo.date.substring(0, 11) : '');
 
-                        let imgHtml = memo.imageUrl ? `<img src="${memo.imageUrl}" class="memo-image">` : '';
-                        const safeText = (memo.text || '').replace(/`/g, '\\`').replace(/\$/g, '\\$');
+                    let imgHtml = memo.imageUrl ? `<img src="${memo.imageUrl}" class="memo-image">` : '';
+                    const safeText = (memo.text || '').replace(/`/g, '\\`').replace(/\$/g, '\\$');
 
-                        card.innerHTML = `
-                            <span class="memo-author">${memo.author || '아빠'}</span>
-                            <button class="btn-delete" onclick="deleteMemo('${memo.id}')">×</button>
-                            <div class="memo-text">${memo.text || ''}</div>
-                            ${imgHtml}
-                            <div class="memo-footer">
-                                <span>${memo.date || ''}</span>
-                                <button class
+                    card.innerHTML = `
+                        <span class="memo-author">${memo.author || '아빠'}</span>
+                        <button class="btn-delete" onclick="deleteMemo('${memo.id}')">×</button>
+                        <div class="memo-text">${memo.text || ''}</div>
+                        ${imgHtml}
+                        <div class="memo-footer">
+                            <span>${memo.date || ''}</span>
+                            <button class="btn-edit-trigger" onclick="editMemoPrompt('${memo.id}', \`${safeText}\`)">🛠️ 내용 수정</button>
+                        </div>
+                    `;
+                    memoListDiv.appendChild(card);
+                });
+            }, (error) => {
+                console.error("데이터 통신 장애 원인:", error);
+                memoListDiv.innerHTML = '<div style="text-align:center; color:#aaa; padding:40px 0;">데이터를 가져오지 못했습니다. 파이어베이스 연동을 다시 시도합니다.</div>';
+            });
+        }
+
+        async function handleMemoSubmit() {
+            const textarea = document.getElementById('memoText');
+            const textContent = textarea.value.trim();
+
+            if (!textContent) { alert('내용을 입력해 주세요.'); return; }
+            if (!database) { alert('서버 연결 실패'); return; }
+
+            const now = new Date();
+            const dateStr = `${now.getFullYear()}년 ${String(now.getMonth()+1).padStart(2,'0')}월 ${String(now.getDate()).padStart(2,'0')}일 ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+            
+            const memoData = {
+                author: '아빠',
+                text: textContent,
+                date: dateStr,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            };
+
+            database.ref('memos').push(memoData).then(() => {
+                textarea.value = '';
+                calculateStorageSize();
+            }).catch((err) => {
+                alert("등록에 실패했습니다.");
+                console.error(err);
+            });
+        }
+
+        function deleteMemo(id) {
+            if (confirm('이 메모를 삭제하시겠습니까?') && database) {
+                database.ref(`memos/${id}`).remove().then(() => { calculateStorageSize(); });
+            }
+        }
+
+        function editMemoPrompt(id, oldText) {
+            if (!database) return;
+            const newText = prompt('수정 내용을 입력하세요:', oldText);
+            if (newText !== null) {
+                database.ref(`memos/${id}`).update({ text: newText });
+            }
+        }
+
+        function filterMemosByDate() {
+            const searchInput = document.getElementById('searchDate').value;
+            if (!searchInput) return;
+            const targetDateStr = searchInput.replace(/(\d{4})-(\d{2})-(\d{2})/, '$1년 $2월 $3일');
+            document.querySelectorAll('.memo-card').forEach(card => {
+                const cardDate = card.getAttribute('data-date');
+                card.style.display = (cardDate && cardDate.includes(targetDateStr)) ? 'block' : 'none';
+            });
+        }
+
+        function clearDateFilter() {
+            if(document.getElementById('searchDate')) document.getElementById('searchDate').value = '';
+            document.querySelectorAll('.memo-card').forEach(card => card.style.display = 'block');
+        }
+
+        function calculateStorageSize() {
+            if (!database) return;
+            database.ref('memos').once('value', (snapshot) => {
+                const str = JSON.stringify(snapshot.val() || {});
+                const bytes = new Blob([str]).size;
+                const megaBytes = (bytes / (1024 * 1024)).toFixed(2);
+                
+                if (document.getElementById('topStorageText')) document.getElementById('topStorageText').innerText = `${megaBytes} MB`;
+                if (document.getElementById('bottomStorageText')) document.getElementById('bottomStorageText').innerText = `${megaBytes} MB`;
+                if (document.getElementById('storageBar')) {
+                    document.getElementById('storageBar').style.width = `${Math.min((megaBytes / 5000) * 100, 100) || 0.1}%`;
+                }
+            });
+        }
+
+        document.getElementById('memoText').addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'Enter') { handleMemoSubmit(); }
+        });
+    </script>
+</body>
+</html>
