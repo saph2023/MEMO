@@ -268,24 +268,31 @@
     </div>
 
     <script>
-        // [수정 핵심] 파이어베이스 아시아-싱가포르 리전의 실제 공식 도메인 구조로 주소 교체 완료
+        // [수정 핵심] 주소 에러 매칭을 원천 차단하기 위해 원본 프로젝트 고유 ID 구조를 강제 수동 동기화하여 연동
         const firebaseConfig = {
+            projectId: "saph2023",
             databaseURL: "https://saph2023-default-rtdb.asia-southeast1.firebasedatabase.app",
             storageBucket: "saph2023.appspot.com"
         };
         
-        // 파이어베이스 초기화 예외 안전 처리
+        let database = null;
+        let storage = null;
+        let attachedImageBase64 = null; 
+
+        // 파이어베이스 선언부 결함 차단 초기화
         try {
             if (!firebase.apps.length) {
-                firebase.initializeApp(firebaseConfig);
+                const app = firebase.initializeApp(firebaseConfig);
+                // 인스턴스를 도메인 주소로 명시적 강제 고정 호출
+                database = firebase.database(app);
+                storage = firebase.storage(app);
+            } else {
+                database = firebase.database();
+                storage = firebase.storage();
             }
         } catch(e) {
-            console.error("파이어베이스 초기화 실패:", e);
+            console.error("파이어베이스 연결부 에러 커스텀 처리:", e);
         }
-
-        const database = firebase.database();
-        const storage = firebase.storage();
-        let attachedImageBase64 = null; 
 
         // 카카오 초기화
         try {
@@ -329,10 +336,15 @@
             }
         };
 
-        // 주소 에러가 나더라도 첫 입력창 화면은 무조건 뜨도록 구조 분리 및 예외 결함 차단
+        // 데이터베이스 수신 여부와 완전 별개로 입력창 인터페이스는 항상 정상 표출되도록 격리 설계
         function loadMemosRealtime() {
             const memoListDiv = document.getElementById('memoList');
             if (!memoListDiv) return;
+
+            if (!database) {
+                memoListDiv.innerHTML = '<div style="text-align:center; color:#e50914; padding:20px 0;">⚠️ 파이어베이스 라이브러리 연결에 실패했습니다.</div>';
+                return;
+            }
 
             try {
                 database.ref('memos').orderByChild('timestamp').on('value', (snapshot) => {
@@ -362,164 +374,4 @@
                             ${imgHtml}
                             <div class="memo-footer">
                                 <span>${memo.date || ''}</span>
-                                <button class="btn-edit-trigger" onclick="editMemoPrompt('${memo.id}', \`${safeText}\`)">🛠️ 내용/날짜 수정</button>
-                            </div>
-                        `;
-                        memoListDiv.appendChild(card);
-                    });
-                }, (error) => {
-                    console.error("데이터 읽기 실패 (파이어베이스 주소 또는 규칙 에러):", error);
-                    memoListDiv.innerHTML = '<div style="text-align:center; color:#e50914; padding:20px 0;">⚠️ 실시간 데이터를 연결하는 중 오류가 발생했습니다. 주소 설정을 확인해 주세요.</div>';
-                });
-            } catch(e) {
-                console.error("연동 구동 에러:", e);
-                memoListDiv.innerHTML = '<div style="text-align:center; color:#e50914; padding:20px 0;">⚠️ 시스템 연동부 에러가 발생했습니다.</div>';
-            }
-        }
-
-        async function handleMemoSubmit() {
-            const textarea = document.getElementById('memoText');
-            if (!textarea) return;
-            const textContent = textarea.value.trim();
-
-            if (!textContent && !attachedImageBase64) {
-                alert('내용을 입력하거나 이미지를 붙여넣어 주세요.');
-                return;
-            }
-
-            const now = new Date();
-            const dateStr = `${now.getFullYear()}년 ${String(now.getMonth()+1).padStart(2,'0')}월 ${String(now.getDate()).padStart(2,'0')}일 ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-            
-            let uploadedImageUrl = null;
-
-            if (attachedImageBase64) {
-                try {
-                    const storageRef = storage.ref(`images/${Date.now()}.png`);
-                    const snapshot = await storageRef.putString(attachedImageBase64, 'data_url');
-                    uploadedImageUrl = await snapshot.ref.getDownloadURL();
-                } catch (e) {
-                    console.error('이미지 업로드 오류', e);
-                }
-            }
-
-            const memoData = {
-                author: '아빠',
-                text: textContent || '(이미지 첨부)',
-                imageUrl: uploadedImageUrl,
-                date: dateStr,
-                timestamp: firebase.database.ServerValue.TIMESTAMP
-            };
-
-            try {
-                database.ref('memos').push(memoData).then(() => {
-                    textarea.value = '';
-                    attachedImageBase64 = null;
-                    calculateStorageSize();
-
-                    const snippet = textContent ? textContent.substring(0, 25) + '...' : '📸 사진 파일';
-                    sessionStorage.setItem('last_posted_memo', snippet);
-
-                    if (typeof Kakao !== 'undefined' && Kakao.isInitialized()) {
-                        Kakao.Auth.authorize({
-                            redirectUri: 'https://saph2023.github.io/MEMO/index.html'
-                        });
-                    }
-                }).catch((err) => {
-                    alert("파이어베이스 권한 혹은 주소 오류로 등록되지 않았습니다.");
-                    console.error(err);
-                });
-            } catch(e) {
-                alert("등록 처리 중 연결 오류가 발생했습니다.");
-            }
-        }
-
-        const textElem = document.getElementById('memoText');
-        if (textElem) {
-            textElem.addEventListener('paste', function(e) {
-                const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-                for (let i = 0; i < items.length; i++) {
-                    if (items[i].type.indexOf('image') !== -1) {
-                        const blob = items[i].getAsFile();
-                        const reader = new FileReader();
-                        reader.onload = function(event) {
-                            attachedImageBase64 = event.target.result;
-                            alert('📸 이미지가 클립보드에서 정상 인식되었습니다!');
-                        };
-                        reader.readAsDataURL(blob);
-                    }
-                }
-            });
-        }
-
-        function deleteMemo(id) {
-            if (confirm('이 메모를 삭제하시겠습니까?')) {
-                database.ref(`memos/${id}`).remove().then(() => { calculateStorageSize(); });
-            }
-        }
-
-        function editMemoPrompt(id, oldText) {
-            const newText = prompt('수정 내용을 입력하세요:', oldText);
-            if (newText !== null) {
-                database.ref(`memos/${id}`).update({ text: newText });
-            }
-        }
-
-        function filterMemosByDate() {
-            const searchInput = document.getElementById('searchDate').value;
-            if (!searchInput) return;
-            
-            const targetDateStr = searchInput.replace(/(\d{4})-(\d{2})-(\d{2})/, '$1년 $2월 $3일');
-            const cards = document.querySelectorAll('.memo-card');
-            
-            cards.forEach(card => {
-                const cardDate = card.getAttribute('data-date');
-                if (cardDate && cardDate.includes(targetDateStr)) {
-                    card.style.display = 'block';
-                } else {
-                    card.style.display = 'none';
-                }
-            });
-        }
-
-        function clearDateFilter() {
-            const sDate = document.getElementById('searchDate');
-            if (sDate) sDate.value = '';
-            const cards = document.querySelectorAll('.memo-card');
-            cards.forEach(card => card.style.display = 'block');
-        }
-
-        function calculateStorageSize() {
-            try {
-                database.ref('memos').once('value', (snapshot) => {
-                    const str = JSON.stringify(snapshot.val() || {});
-                    const bytes = new Blob([str]).size;
-                    const megaBytes = (bytes / (1024 * 1024)).toFixed(2);
-                    
-                    const topTxt = document.getElementById('topStorageText');
-                    const barFill = document.getElementById('storageBar');
-                    const botTxt = document.getElementById('bottomStorageText');
-
-                    if (topTxt) topTxt.innerText = `${megaBytes} MB`;
-                    if (barFill) {
-                        const percent = Math.min((megaBytes / 5000) * 100, 100) || 0.1;
-                        barFill.style.width = `${percent}%`;
-                    }
-                    if (botTxt) botTxt.innerText = `${megaBytes} MB`;
-                }, (err) => {
-                    console.warn("용량 계산에 실패했습니다.", err);
-                });
-            } catch(e) {
-                console.warn("용량 함수 처리 예외 발생");
-            }
-        }
-
-        if (textElem) {
-            textElem.addEventListener('keydown', function(e) {
-                if (e.ctrlKey && e.key === 'Enter') {
-                    handleMemoSubmit();
-                }
-            });
-        }
-    </script>
-</body>
-</html>
+                                <button class
