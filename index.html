@@ -87,9 +87,9 @@
             color: #aaa;
         }
 
-        /* 📅 [신규] 왼쪽 사이드 고정 달력 영역 */
+        /* 📅 [좌측 사이드 고정] 날짜별 작업 선택 달력 영역 */
         .fixed-calendar-sidebar {
-            display: none; /* 로그인 전 숨김 */
+            display: none;
             position: fixed;
             top: 15px;
             left: 20px;
@@ -221,7 +221,7 @@
             margin-bottom: 5px;
         }
         
-        /* 메모 입력 구역 */
+        /* 🛠️ [수정] 여러 줄 입력용 테두리 박스 및 textarea 양식 스타일 */
         .input-box {
             display: flex;
             flex-direction: column;
@@ -231,13 +231,18 @@
             padding: 20px;
             border-radius: 8px;
         }
-        .input-box input[type="text"] {
+        .input-box textarea {
             padding: 15px;
             border-radius: 6px;
             border: none;
             background-color: #333;
             color: white;
             font-size: 16px;
+            font-family: 'Noto Sans KR', sans-serif;
+            resize: vertical; /* 사용자가 아래로 크기를 조절할 수 있게 허용 */
+            min-height: 100px; /* 기본 세로 높이 */
+            line-height: 1.5;
+            outline: none;
         }
         
         /* 📎 캡처 이미지 미리보기 영역 */
@@ -305,7 +310,7 @@
         .memo-text {
             font-size: 16px;
             word-break: break-all;
-            white-space: pre-wrap;
+            white-space: pre-wrap; /* 서버에서 엔터값을 줄바꿈으로 인식해 그리는 핵심 설정 */
             line-height: 1.5;
         }
         
@@ -443,7 +448,7 @@
         <p style="color: #aaa; margin-bottom: 20px;">우리 가족이 함께 공유하는 실시간 공간입니다.</p>
         
         <div class="input-box">
-            <input type="text" id="memoInput" placeholder="메모 입력 혹은 캡처본을 여기에 붙여넣기(Ctrl+V) 하세요...">
+            <textarea id="memoInput" placeholder="메모 입력 혹은 캡처본을 여기에 붙여넣기(Ctrl+V) 하세요...&#10;(엔터를 치면 다음 줄로 바뀝니다. 등록은 Ctrl+Enter)" onkeydown="handleKeyDown(event)"></textarea>
             
             <div class="preview-area" id="previewArea">
                 <button class="cancel-preview" onclick="clearPreview()">X</button>
@@ -472,338 +477,4 @@
     const database = firebase.database();
     const storage = firebase.storage();
 
-    let currentWriter = ""; 
-    let pastedFile = null; 
-    let selectedFilterDate = ""; // 달력 필터 날짜 보관 변수
-
-    // 🔒 지정 비밀번호 매칭 (Z1234이름@)
-    function enterMemoApp(name) {
-        const isVerified = sessionStorage.getItem("verified_" + name);
-
-        if (!isVerified) {
-            const password = prompt(name + " 프로필의 비밀번호를 입력하세요.");
-            
-            let isCorrect = false;
-            if (name === '아빠' && password === 'Z1234아빠@') isCorrect = true;
-            else if (name === '엄마' && password === 'Z1234엄마@') isCorrect = true;
-            else if (name === '아들1' && password === 'Z1234아들1@') isCorrect = true;
-            else if (name === '아들2' && password === 'Z1234아들2@') isCorrect = true;
-
-            if (isCorrect) {
-                sessionStorage.setItem("verified_" + name, "true");
-            } else {
-                alert("비밀번호가 잘못되었습니다.");
-                return;
-            }
-        }
-
-        currentWriter = name; 
-        document.getElementById('loginScreen').style.display = 'none'; 
-        document.getElementById('memoScreen').style.display = 'block';
-        document.getElementById('fixedStorageHeader').style.display = 'block'; 
-        document.getElementById('fixedCalendarSidebar').style.display = 'block'; // 로그인 성공 시 달력 오픈
-        document.getElementById('welcomeMessage').innerText = "❤️ " + name + " 님의 가족 메모장";
-        
-        loadMemos();
-        checkStorageUsage(); 
-    }
-
-    // 📋 클립보드 캡처 붙여넣기 모니터링 (Ctrl + V)
-    document.addEventListener('paste', function (event) {
-        if (!currentWriter) return;
-
-        const items = (event.clipboardData || window.clipboardData).items;
-        for (let i = 0; i < items.length; i++) {
-            if (items[i].type.indexOf("image") !== -1) {
-                const file = items[i].getAsFile();
-                pastedFile = file;
-
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    document.getElementById('previewImg').src = e.target.result;
-                    document.getElementById('previewArea').style.display = 'block';
-                };
-                reader.readAsDataURL(file);
-                break;
-            }
-        }
-    });
-
-    function clearPreview() {
-        pastedFile = null;
-        document.getElementById('previewArea').style.display = 'none';
-        document.getElementById('previewImg').src = "";
-    }
-
-    // 등록 처리 함수
-    function saveMemo() {
-        const memoInput = document.getElementById('memoInput');
-        const submitBtn = document.getElementById('submitBtn');
-        
-        const text = memoInput.value.trim();
-        const file = pastedFile; 
-        
-        if (text === "" && !file) return;
-
-        submitBtn.disabled = true;
-        submitBtn.innerText = "업로드 중...";
-
-        if (file) {
-            const fileName = "capture_" + Date.now() + ".png";
-            const storageRef = storage.ref('images/' + fileName);
-            
-            storageRef.put(file).then((snapshot) => {
-                return snapshot.ref.getDownloadURL();
-            }).then((url) => {
-                writeToDatabase(text, url, fileName); 
-            }).catch((error) => {
-                alert("이미지 업로드에 실패했습니다: " + error.message);
-                submitBtn.disabled = false;
-                submitBtn.innerText = "메모 등록하기";
-            });
-        } else {
-            writeToDatabase(text, "", "");
-        }
-    }
-
-    function writeToDatabase(text, imgUrl, fileName) {
-        const memoInput = document.getElementById('memoInput');
-        const submitBtn = document.getElementById('submitBtn');
-
-        database.ref('memos').push({
-            writer: currentWriter,
-            content: text,
-            imageUrl: imgUrl,
-            storageFileName: fileName, 
-            timestamp: Date.now()
-        }).then(() => {
-            memoInput.value = "";
-            clearPreview(); 
-            submitBtn.disabled = false;
-            submitBtn.innerText = "메모 등록하기";
-            checkStorageUsage(); 
-        }).catch((error) => {
-            alert("데이터 저장 실패: " + error.message);
-            submitBtn.disabled = false;
-            submitBtn.innerText = "메모 등록하기";
-        });
-    }
-
-    // 데이터 실시간 수신 및 달력 필터 연동 화면 그리기
-    function loadMemos() {
-        database.ref('memos').on('value', (snapshot) => {
-            renderMemoList(snapshot.val());
-        });
-    }
-
-    function renderMemoList(data) {
-        const listArea = document.getElementById('memoListArea');
-        listArea.innerHTML = ""; 
-
-        if (!data) {
-            listArea.innerHTML = '<div class="no-memo">아직 작성된 메모가 없습니다.</div>';
-            return;
-        }
-
-        let displayedCount = 0;
-
-        Object.keys(data).forEach((key) => {
-            const memo = data[key];
-            
-            // 📅 날짜 계산 및 달력 필터 검사 구역
-            const memoDateObj = new Date(memo.timestamp);
-            const yyyy = memoDateObj.getFullYear();
-            const mm = String(memoDateObj.getMonth() + 1).padStart(2, '0');
-            const dd = String(memoDateObj.getDate()).padStart(2, '0');
-            const memoDateString = `${yyyy}-${mm}-${dd}`; // '2026-06-20' 형태 생성
-
-            // 만약 달력 날짜가 선택되어 있는데, 글 날짜랑 다르면 이 글은 패스(숨김)
-            if (selectedFilterDate && selectedFilterDate !== memoDateString) {
-                return;
-            }
-
-            displayedCount++;
-
-            const hours = String(memoDateObj.getHours()).padStart(2, '0');
-            const minutes = String(memoDateObj.getMinutes()).padStart(2, '0');
-            const finalTimeText = `${yyyy}년 ${mm}월 ${dd}일 ${hours}:${minutes}`;
-
-            const itemDiv = document.createElement('div');
-            itemDiv.className = 'memo-item';
-            
-            const imgTag = memo.imageUrl ? `<img src="${memo.imageUrl}" class="memo-image" alt="가족 업로드 이미지">` : '';
-            
-            itemDiv.innerHTML = `
-                <div class="memo-header">
-                    <span class="author-badge badge-${memo.writer}">${memo.writer}</span>
-                    <button class="delete-btn" onclick="deleteMemo('${key}', '${memo.writer}', '${memo.storageFileName || ''}')">❌</button>
-                </div>
-                <div class="memo-text" id="text-${key}">${memo.content}</div>
-                ${imgTag}
-                <div class="memo-info-line">
-                    <span id="time-${key}">${finalTimeText}</span>
-                    <button class="edit-action-btn" onclick="editMemo('${key}', '${memo.writer}', ${memo.timestamp})">🛠️ 내용/날짜 수정</button>
-                </div>
-            `;
-            
-            listArea.insertBefore(itemDiv, listArea.firstChild);
-        });
-
-        if (displayedCount === 0 && selectedFilterDate) {
-            listArea.innerHTML = `<div class="no-memo">${selectedFilterDate} 일자에 작성된 메모가 없습니다.</div>`;
-        } else if (displayedCount === 0) {
-            listArea.innerHTML = '<div class="no-memo">아직 작성된 메모가 없습니다.</div>';
-        }
-    }
-
-    // 📅 [달력 기능] 달력 변경 시 필터링 실행
-    function filterMemosByDate() {
-        const inputVal = document.getElementById('calendarFilterInput').value;
-        if (inputVal) {
-            selectedFilterDate = inputVal;
-            document.getElementById('filterStatusText').style.display = 'block';
-            document.getElementById('filterStatusText').innerText = `📌 ${inputVal} 기록 감시 중`;
-        } else {
-            clearDateFilter();
-        }
-        
-        // 실시간 데이터를 다시 읽어서 새로 그리기
-        database.ref('memos').once('value', (snapshot) => {
-            renderMemoList(snapshot.val());
-        });
-    }
-
-    // 📅 [달력 기능] 전체보기로 리셋
-    function clearDateFilter() {
-        selectedFilterDate = "";
-        document.getElementById('calendarFilterInput').value = "";
-        document.getElementById('filterStatusText').style.display = 'none';
-        
-        database.ref('memos').once('value', (snapshot) => {
-            renderMemoList(snapshot.val());
-        });
-    }
-
-    // 🛠️ [내용/날짜 수정 기능] 본인 검증 후 원격 DB 즉시 업데이트
-    function editMemo(key, writerName, oldTimestamp) {
-        if (currentWriter !== writerName) {
-            alert("본인이 작성한 메모만 수정할 수 있습니다.");
-            return;
-        }
-
-        // 1. 기존 내용 추출 후 수정 팝업
-        const currentText = document.getElementById(`text-${key}`).innerText;
-        const newText = prompt("수정할 메모 내용을 입력하세요:", currentText);
-        if (newText === null) return; // 취소 버튼 누름
-
-        // 2. 기존 날짜 형식 변환 후 날짜 변경 팝업
-        const oldDate = new Date(oldTimestamp);
-        const defaultDateStr = `${oldDate.getFullYear()}-${String(oldDate.getMonth() + 1).padStart(2, '0')}-${String(oldDate.getDate()).padStart(2, '0')}`;
-        const newDateStr = prompt("작업 날짜를 변경하시겠습니까? (형식: YYYY-MM-DD)", defaultDateStr);
-        
-        let finalTimestamp = oldTimestamp;
-
-        // 날짜 변경을 입력한 경우 타임스탬프 재계산
-        if (newDateStr && newDateStr !== defaultDateStr) {
-            const dateParts = newDateStr.split('-');
-            if (dateParts.length === 3) {
-                // 기존 시/분 값을 그대로 유지하면서 날짜만 이식
-                const parsedDate = new Date(
-                    parseInt(dateParts[0]), 
-                    parseInt(dateParts[1]) - 1, 
-                    parseInt(dateParts[2]),
-                    oldDate.getHours(),
-                    oldDate.getMinutes(),
-                    oldDate.getSeconds()
-                );
-                if (!isNaN(parsedDate.getTime())) {
-                    finalTimestamp = parsedDate.getTime();
-                } else {
-                    alert("날짜 형식이 올바르지 않아 기존 날짜로 유지됩니다.");
-                }
-            } else {
-                alert("날짜 형식이 올바르지 않아 기존 날짜로 유지됩니다.");
-            }
-        }
-
-        // 3. 서버 실시간 업데이트 연동
-        database.ref('memos/' + key).update({
-            content: newText.trim(),
-            timestamp: finalTimestamp
-        }).then(() => {
-            alert("메모 내용 및 날짜 수정이 정상 반영되었습니다.");
-        }).catch((error) => {
-            alert("수정 실패: " + error.message);
-        });
-    }
-
-    // 🔒 본인 글만 삭제 검증 + 스토리지 연동 이미지 삭제
-    function deleteMemo(key, writerName, storageFileName) {
-        if (currentWriter !== writerName) {
-            alert("본인이 작성한 메모만 삭제할 수 있습니다.");
-            return; 
-        }
-
-        if (confirm("이 메모를 정말 삭제하시겠습니까?\n(첨부된 사진 파일도 서버에서 완전히 삭제됩니다.)")) {
-            if (storageFileName && storageFileName !== "") {
-                const fileRef = storage.ref('images/' + storageFileName);
-                fileRef.delete().then(() => {
-                    proceedDeleteText(key);
-                }).catch((error) => {
-                    console.log("이미 파일이 없거나 삭제 실패:", error.message);
-                    proceedDeleteText(key);
-                });
-            } else {
-                proceedDeleteText(key);
-            }
-        }
-    }
-
-    function proceedDeleteText(key) {
-        database.ref('memos/' + key).remove().then(() => {
-            setTimeout(() => {
-                checkStorageUsage(); 
-            }, 500);
-        });
-    }
-
-    // 📊 파이어베이스 스토리지 실제 사용량을 계산해서 화면에 업데이트
-    function checkStorageUsage() {
-        const storageUsageText = document.getElementById('storageUsageText');
-        const storageProgressBar = document.getElementById('storageProgressBar');
-
-        storageUsageText.innerText = "계산 중...";
-
-        const bucketRef = storage.ref('images'); 
-
-        bucketRef.listAll().then((result) => {
-            let totalSize = 0;
-            const processItems = result.items.map((itemRef) => {
-                return itemRef.getMetadata().then((metadata) => {
-                    totalSize += metadata.size; 
-                });
-            });
-
-            Promise.all(processItems).then(() => {
-                const usageMB = totalSize / 1024 / 1024; 
-                const usageGB = usageMB / 1024; 
-                const totalGB = 5; 
-                const usagePercent = (usageGB / totalGB) * 100; 
-
-                if(usageMB < 500) {
-                    storageUsageText.innerText = usageMB.toFixed(2) + " MB";
-                } else {
-                    storageUsageText.innerText = usageGB.toFixed(2) + " GB";
-                }
-                
-                storageProgressBar.style.width = Math.min(usagePercent, 100) + "%"; 
-            });
-        }).catch((error) => {
-            console.log("용량 체크 에러:", error);
-            storageUsageText.innerText = "0.00 MB";
-        });
-    }
-</script>
-
-</body>
-</html>
+    let currentWriter = "";
