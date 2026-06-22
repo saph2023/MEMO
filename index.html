@@ -7,9 +7,6 @@
     
     <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"></script>
 
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background-color: #121212; color: #ffffff; font-family: 'Noto Sans KR', sans-serif; padding: 20px; display: flex; flex-direction: column; align-items: center; }
@@ -48,9 +45,9 @@
         <div class="search-box">
             <div style="margin-bottom: 8px;">
                 <span style="font-size: 12px; color: #aaa;">📅 날짜별 작업 검색</span>
-                <button class="btn-all" onclick="clearDateFilter()">전체보기</button>
+                <button class="btn-all" id="btnAll">전체보기</button>
             </div>
-            <input type="date" id="searchDate" onchange="filterMemosByDate()">
+            <input type="date" id="searchDate">
         </div>
 
         <div class="main-title">
@@ -61,7 +58,7 @@
         <div class="storage-box">
             <div class="storage-title">
                 <span>📊 서버 용량 제한 (5GB)</span>
-                <span style="cursor:pointer; font-size:11px;" onclick="calculateStorageSize()">새로고침</span>
+                <span style="cursor:pointer; font-size:11px;" id="btnRefresh">새로고침</span>
             </div>
             <div class="storage-bar-bg">
                 <div class="storage-bar-fill" id="storageBar"></div>
@@ -73,7 +70,7 @@
     <div class="container">
         <div class="memo-input-box">
             <textarea id="memoText" placeholder="메모 입력 혹은 캡처본을 여기에 붙여넣기(Ctrl+V) 하세요...&#10;(등록은 Ctrl+Enter)"></textarea>
-            <button class="btn-submit" onclick="handleMemoSubmit()">메모 등록하기</button>
+            <button class="btn-submit" id="btnSubmit">메모 등록하기</button>
         </div>
 
         <div class="memo-list" id="memoList">데이터 불러오는 중...</div>
@@ -83,26 +80,18 @@
         </div>
     </div>
 
-    <script>
-        const targetDbUrl = "https://saph2023-default-rtdb.asia-southeast1.firebasedatabase.app";
-        
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getDatabase, ref, onValue, push, remove, update, serverTimestamp, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
         const firebaseConfig = {
             projectId: "saph2023",
-            databaseURL: targetDbUrl
+            databaseURL: "https://saph2023-default-rtdb.asia-southeast1.firebasedatabase.app"
         };
-        
-        let database = null;
 
-        try {
-            if (!firebase.apps.length) {
-                firebase.initializeApp(firebaseConfig);
-            }
-            // [핵심 변경] 주소 버그 우회를 위해 데이터베이스 객체 생성 시 싱가포르 주소를 명시적으로 직접 강제 주입
-            database = firebase.database(firebase.app());
-            database.jsinterface_ = targetDbUrl; 
-        } catch(e) {
-            console.error("Firebase 연결 실패:", e);
-        }
+        // Firebase 초기화 및 인스턴스 명시적 생성
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
 
         // 카카오 초기화
         try {
@@ -111,22 +100,27 @@
             }
         } catch (e) { console.error('Kakao SDK 로드 실패', e); }
 
-        window.onload = function() {
-            loadMemosRealtime();
-            calculateStorageSize();
-        };
+        // 초기 실행 이벤트 바인딩
+        document.getElementById('btnSubmit').addEventListener('click', handleMemoSubmit);
+        document.getElementById('btnAll').addEventListener('click', clearDateFilter);
+        document.getElementById('searchDate').addEventListener('change', filterMemosByDate);
+        document.getElementById('btnRefresh').addEventListener('click', calculateStorageSize);
+        document.getElementById('memoText').addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'Enter') { handleMemoSubmit(); }
+        });
+
+        // 실시간 메모 로딩 시작
+        loadMemosRealtime();
+        calculateStorageSize();
 
         function loadMemosRealtime() {
             const memoListDiv = document.getElementById('memoList');
-            if (!database) {
-                memoListDiv.innerHTML = '<div style="text-align:center; color:#e50914; padding:20px 0;">⚠️ 데이터베이스 연결 실패</div>';
-                return;
-            }
+            const dbRef = ref(database, 'memos');
 
-            // 구형 SDK 타겟 인스턴스 주소 강제 보정 후 참조 호출
-            database.app().database(targetDbUrl).ref('memos').orderByChild('timestamp').on('value', (snapshot) => {
+            onValue(dbRef, (snapshot) => {
                 memoListDiv.innerHTML = '';
                 const memos = [];
+                
                 snapshot.forEach((childSnapshot) => {
                     memos.push({ id: childSnapshot.key, ...childSnapshot.val() });
                 });
@@ -142,23 +136,42 @@
                     card.setAttribute('data-date', memo.date ? memo.date.substring(0, 11) : '');
 
                     let imgHtml = memo.imageUrl ? `<img src="${memo.imageUrl}" class="memo-image">` : '';
-                    const safeText = (memo.text || '').replace(/`/g, '\\`').replace(/\$/g, '\\$');
-
+                    
+                    // 전역 함수 우회를 위한 요소 생성 및 이벤트 바인딩 처리
                     card.innerHTML = `
                         <span class="memo-author">${memo.author || '아빠'}</span>
-                        <button class="btn-delete" onclick="deleteMemo('${memo.id}')">×</button>
+                        <button class="btn-delete" data-id="${memo.id}">×</button>
                         <div class="memo-text">${memo.text || ''}</div>
                         ${imgHtml}
                         <div class="memo-footer">
                             <span>${memo.date || ''}</span>
-                            <button class="btn-edit-trigger" onclick="editMemoPrompt('${memo.id}', \`${safeText}\`)">🛠️ 내용 수정</button>
+                            <button class="btn-edit-trigger" data-id="${memo.id}" data-text="${(memo.text || '').replace(/"/g, '&quot;')}">🛠️ 내용 수정</button>
                         </div>
                     `;
+
+                    // 삭제 버튼 이벤트 매핑
+                    card.querySelector('.btn-delete').addEventListener('click', (e) => {
+                        const mid = e.target.getAttribute('data-id');
+                        if (confirm('이 메모를 삭제하시겠습니까?')) {
+                            remove(ref(database, `memos/${mid}`)).then(() => calculateStorageSize());
+                        }
+                    });
+
+                    // 수정 버튼 이벤트 매핑
+                    card.querySelector('.btn-edit-trigger').addEventListener('click', (e) => {
+                        const mid = e.target.getAttribute('data-id');
+                        const oldText = e.target.getAttribute('data-text');
+                        const newText = prompt('수정 내용을 입력하세요:', oldText);
+                        if (newText !== null) {
+                            update(ref(database, `memos/${mid}`), { text: newText });
+                        }
+                    });
+
                     memoListDiv.appendChild(card);
                 });
             }, (error) => {
                 console.error("데이터 읽기 에러 발생:", error);
-                memoListDiv.innerHTML = '<div style="text-align:center; color:#aaa; padding:40px 0;">데이터 연동 실패. 네트워크나 파이어베이스 리전 설정을 점검 중입니다.</div>';
+                memoListDiv.innerHTML = '<div style="text-align:center; color:#aaa; padding:40px 0;">데이터 연동 실패. 네트워크 상태를 확인 중입니다.</div>';
             });
         }
 
@@ -167,7 +180,6 @@
             const textContent = textarea.value.trim();
 
             if (!textContent) { alert('내용을 입력해 주세요.'); return; }
-            if (!database) { alert('서버 연결 실패'); return; }
 
             const now = new Date();
             const dateStr = `${now.getFullYear()}년 ${String(now.getMonth()+1).padStart(2,'0')}월 ${String(now.getDate()).padStart(2,'0')}일 ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
@@ -176,30 +188,16 @@
                 author: '아빠',
                 text: textContent,
                 date: dateStr,
-                timestamp: firebase.database.ServerValue.TIMESTAMP
+                timestamp: serverTimestamp()
             };
 
-            database.app().database(targetDbUrl).ref('memos').push(memoData).then(() => {
+            push(ref(database, 'memos'), memoData).then(() => {
                 textarea.value = '';
                 calculateStorageSize();
             }).catch((err) => {
                 alert("등록에 실패했습니다.");
                 console.error(err);
             });
-        }
-
-        function deleteMemo(id) {
-            if (confirm('이 메모를 삭제하시겠습니까?') && database) {
-                database.app().database(targetDbUrl).ref(`memos/${id}`).remove().then(() => { calculateStorageSize(); });
-            }
-        }
-
-        function editMemoPrompt(id, oldText) {
-            if (!database) return;
-            const newText = prompt('수정 내용을 입력하세요:', oldText);
-            if (newText !== null) {
-                database.app().database(targetDbUrl).ref(`memos/${id}`).update({ text: newText });
-            }
         }
 
         function filterMemosByDate() {
@@ -218,8 +216,7 @@
         }
 
         function calculateStorageSize() {
-            if (!database) return;
-            database.app().database(targetDbUrl).ref('memos').once('value', (snapshot) => {
+            get(ref(database, 'memos')).then((snapshot) => {
                 const str = JSON.stringify(snapshot.val() || {});
                 const bytes = new Blob([str]).size;
                 const megaBytes = (bytes / (1024 * 1024)).toFixed(2);
@@ -231,10 +228,6 @@
                 }
             });
         }
-
-        document.getElementById('memoText').addEventListener('keydown', function(e) {
-            if (e.ctrlKey && e.key === 'Enter') { handleMemoSubmit(); }
-        });
     </script>
 </body>
 </html>
