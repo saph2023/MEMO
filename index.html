@@ -84,10 +84,11 @@
     </div>
 
     <script>
-        // [수정 핵심] 아시아 리전 서버 매칭을 위해 projectId를 함께 묶어 명시적 경로 지정
+        const targetDbUrl = "https://saph2023-default-rtdb.asia-southeast1.firebasedatabase.app";
+        
         const firebaseConfig = {
             projectId: "saph2023",
-            databaseURL: "https://saph2023-default-rtdb.asia-southeast1.firebasedatabase.app"
+            databaseURL: targetDbUrl
         };
         
         let database = null;
@@ -96,9 +97,11 @@
             if (!firebase.apps.length) {
                 firebase.initializeApp(firebaseConfig);
             }
-            database = firebase.database();
+            // [핵심 변경] 주소 버그 우회를 위해 데이터베이스 객체 생성 시 싱가포르 주소를 명시적으로 직접 강제 주입
+            database = firebase.database(firebase.app());
+            database.jsinterface_ = targetDbUrl; 
         } catch(e) {
-            console.error("Firebase 연결 에러:", e);
+            console.error("Firebase 연결 실패:", e);
         }
 
         // 카카오 초기화
@@ -120,7 +123,8 @@
                 return;
             }
 
-            database.ref('memos').orderByChild('timestamp').on('value', (snapshot) => {
+            // 구형 SDK 타겟 인스턴스 주소 강제 보정 후 참조 호출
+            database.app().database(targetDbUrl).ref('memos').orderByChild('timestamp').on('value', (snapshot) => {
                 memoListDiv.innerHTML = '';
                 const memos = [];
                 snapshot.forEach((childSnapshot) => {
@@ -153,8 +157,8 @@
                     memoListDiv.appendChild(card);
                 });
             }, (error) => {
-                console.error("데이터 통신 장애 원인:", error);
-                memoListDiv.innerHTML = '<div style="text-align:center; color:#aaa; padding:40px 0;">데이터를 가져오지 못했습니다. 파이어베이스 연동을 다시 시도합니다.</div>';
+                console.error("데이터 읽기 에러 발생:", error);
+                memoListDiv.innerHTML = '<div style="text-align:center; color:#aaa; padding:40px 0;">데이터 연동 실패. 네트워크나 파이어베이스 리전 설정을 점검 중입니다.</div>';
             });
         }
 
@@ -175,7 +179,7 @@
                 timestamp: firebase.database.ServerValue.TIMESTAMP
             };
 
-            database.ref('memos').push(memoData).then(() => {
+            database.app().database(targetDbUrl).ref('memos').push(memoData).then(() => {
                 textarea.value = '';
                 calculateStorageSize();
             }).catch((err) => {
@@ -186,7 +190,7 @@
 
         function deleteMemo(id) {
             if (confirm('이 메모를 삭제하시겠습니까?') && database) {
-                database.ref(`memos/${id}`).remove().then(() => { calculateStorageSize(); });
+                database.app().database(targetDbUrl).ref(`memos/${id}`).remove().then(() => { calculateStorageSize(); });
             }
         }
 
@@ -194,7 +198,7 @@
             if (!database) return;
             const newText = prompt('수정 내용을 입력하세요:', oldText);
             if (newText !== null) {
-                database.ref(`memos/${id}`).update({ text: newText });
+                database.app().database(targetDbUrl).ref(`memos/${id}`).update({ text: newText });
             }
         }
 
@@ -215,7 +219,7 @@
 
         function calculateStorageSize() {
             if (!database) return;
-            database.ref('memos').once('value', (snapshot) => {
+            database.app().database(targetDbUrl).ref('memos').once('value', (snapshot) => {
                 const str = JSON.stringify(snapshot.val() || {});
                 const bytes = new Blob([str]).size;
                 const megaBytes = (bytes / (1024 * 1024)).toFixed(2);
