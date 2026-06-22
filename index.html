@@ -84,10 +84,9 @@
     </div>
 
     <script>
-        // 아빠 파이어베이스 프로젝트의 정확한 설정 값 (싱가포르 리전 전용 주소 반영)
+        // Firebase 앱 식별을 위한 기본 프로젝트 ID 설정
         const firebaseConfig = {
-            projectId: "saph2023",
-            databaseURL: "https://saph2023-default-rtdb.asia-southeast1.firebasedatabase.app/"
+            projectId: "saph2023"
         };
 
         // 안전하게 초기화
@@ -95,8 +94,8 @@
             firebase.initializeApp(firebaseConfig);
         }
         
-        // 기존 아빠 코드의 데이터베이스 참조 방식 그대로 유지
-        const database = firebase.database();
+        // 싱가포르 리전 주소를 괄호 안에 직접 명시하여 구버전 인식 오류를 원천 해결합니다.
+        const database = firebase.database("https://saph2023-default-rtdb.asia-southeast1.firebasedatabase.app/");
 
         // 카카오 초기화
         try {
@@ -110,7 +109,7 @@
             calculateStorageSize();
         };
 
-        // 실시간 메모 연동 기능 (기존 로직 100% 동일)
+        // 실시간 메모 연동 기능
         function loadMemosRealtime() {
             const memoListDiv = document.getElementById('memoList');
             
