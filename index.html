@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>우리 가족 메모장</title>
     
-    <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js" integrity="sha384-TiCUE00h649CAMonGHrW56UBd8CqvM98Kp3UOPXUeWv9kJST427UMANg1A67HJUM" crossorigin="anonymous"></script>
+    <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"></script>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
@@ -106,6 +106,7 @@
             height: 100%;
             background-color: #e50914;
             width: 0.1%;
+            transition: width 0.3s ease;
         }
         .storage-text {
             text-align: right;
@@ -267,7 +268,7 @@
     </div>
 
     <script>
-        // 파이어베이스 인프라 세팅
+        // 파이어베이스 초기 세팅
         const firebaseConfig = {
             databaseURL: "https://saph2023-default-rtdb.firebaseio.com",
             storageBucket: "saph2023.appspot.com"
@@ -280,9 +281,9 @@
         const storage = firebase.storage();
         let attachedImageBase64 = null; 
 
-        // 카카오 초기화
+        // 카카오 안전 초기화 (Kakao 존재 여부 사전 검증)
         try {
-            if (!Kakao.isInitialized()) {
+            if (typeof Kakao !== 'undefined' && !Kakao.isInitialized()) {
                 Kakao.init('bfc4502483d1a36707fa47c6d59db619');
                 console.log('카카오 SDK 초기화 완료');
             }
@@ -290,8 +291,12 @@
             console.error('카카오 SDK 초기화 실패', e);
         }
 
-        // 카카오 알림 톡 발송 함수
+        // 카카오 알림톡 전송 함수
         function sendKakaoTalkMessage(memoSnippet) {
+            if (typeof Kakao === 'undefined' || !Kakao.isInitialized()) {
+                console.warn('카카오 SDK가 준비되지 않아 메시지를 발송할 수 없습니다.');
+                return;
+            }
             Kakao.API.request({
                 url: '/v2/api/talk/memo/default/send',
                 data: {
@@ -303,23 +308,22 @@
                             mobile_web_url: 'https://saph2023.github.io/MEMO/index.html',
                         },
                         button_title: '메모장 열기'
-                    },
+                    }
                 },
                 success: function(response) {
                     console.log('카카오톡 알림 발송 성공');
                 },
                 fail: function(error) {
                     console.error('카카오톡 알림 발송 실패', error);
-                },
+                }
             });
         }
 
-        // 구동 즉시 실행 로직
+        // 초기 화면 구동 시 실행 로직
         window.onload = function() {
             loadMemosRealtime();
             calculateStorageSize();
 
-            // 카카오 동의/인증을 받고 리다이렉트되었을 때 처리
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('code')) {
                 window.history.replaceState({}, document.title, window.location.pathname);
@@ -328,10 +332,11 @@
             }
         };
 
-        // 파이어베이스 실시간 연동 리스트 출력
+        // 실시간 메모 리스트 연동 및 출력
         function loadMemosRealtime() {
             database.ref('memos').orderByChild('timestamp').on('value', (snapshot) => {
                 const memoListDiv = document.getElementById('memoList');
+                if (!memoListDiv) return;
                 memoListDiv.innerHTML = '';
                 
                 const memos = [];
@@ -345,15 +350,16 @@
                     card.setAttribute('data-date', memo.date ? memo.date.substring(0, 11) : '');
 
                     let imgHtml = memo.imageUrl ? `<img src="${memo.imageUrl}" class="memo-image">` : '';
+                    const safeText = (memo.text || '').replace(/`/g, '\\`').replace(/\$/g, '\\$');
 
                     card.innerHTML = `
                         <span class="memo-author">${memo.author || '아빠'}</span>
                         <button class="btn-delete" onclick="deleteMemo('${memo.id}')">×</button>
-                        <div class="memo-text">${memo.text}</div>
+                        <div class="memo-text">${memo.text || ''}</div>
                         ${imgHtml}
                         <div class="memo-footer">
-                            <span>${memo.date}</span>
-                            <button class="btn-edit-trigger" onclick="editMemoPrompt('${memo.id}', \`${memo.text}\`)">🛠️ 내용/날짜 수정</button>
+                            <span>${memo.date || ''}</span>
+                            <button class="btn-edit-trigger" onclick="editMemoPrompt('${memo.id}', \`${safeText}\`)">🛠️ 내용/날짜 수정</button>
                         </div>
                     `;
                     memoListDiv.appendChild(card);
@@ -361,9 +367,10 @@
             });
         }
 
-        // 메모 데이터 처리 및 카카오 권한 요청 호출
+        // 메모 데이터 등록 처리
         async function handleMemoSubmit() {
             const textarea = document.getElementById('memoText');
+            if (!textarea) return;
             const textContent = textarea.value.trim();
 
             if (!textContent && !attachedImageBase64) {
@@ -399,32 +406,35 @@
                 attachedImageBase64 = null;
                 calculateStorageSize();
 
-                // 알림 문구 매핑 및 세션스토리지 임시보관
                 const snippet = textContent ? textContent.substring(0, 25) + '...' : '📸 사진 파일';
                 sessionStorage.setItem('last_posted_memo', snippet);
 
-                // 카카오 동의 요청 확인창 실행
-                Kakao.Auth.authorize({
-                    redirectUri: 'https://saph2023.github.io/MEMO/index.html'
-                });
+                if (typeof Kakao !== 'undefined' && Kakao.isInitialized()) {
+                    Kakao.Auth.authorize({
+                        redirectUri: 'https://saph2023.github.io/MEMO/index.html'
+                    });
+                }
             });
         }
 
-        // Ctrl+V 이미지 캡처 처리
-        document.getElementById('memoText').addEventListener('paste', function(e) {
-            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-            for (let i = 0; i < items.length; i++) {
-                if (items[i].type.indexOf('image') !== -1) {
-                    const blob = items[i].getAsFile();
-                    const reader = new FileReader();
-                    reader.onload = function(event) {
-                        attachedImageBase64 = event.target.result;
-                        alert('📸 이미지가 클립보드에서 정상 인식되었습니다! 등록 시 함께 저장됩니다.');
-                    };
-                    reader.readAsDataURL(blob);
+        // 이미지 Ctrl+V 처리
+        const textElem = document.getElementById('memoText');
+        if (textElem) {
+            textElem.addEventListener('paste', function(e) {
+                const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                        const blob = items[i].getAsFile();
+                        const reader = new FileReader();
+                        reader.onload = function(event) {
+                            attachedImageBase64 = event.target.result;
+                            alert('📸 이미지가 클립보드에서 정상 인식되었습니다! 등록 시 함께 저장됩니다.');
+                        };
+                        reader.readAsDataURL(blob);
+                    }
                 }
-            }
-        });
+            });
+        }
 
         function deleteMemo(id) {
             if (confirm('이 메모를 삭제하시겠습니까?')) {
@@ -450,7 +460,7 @@
             
             cards.forEach(card => {
                 const cardDate = card.getAttribute('data-date');
-                if (cardDate.includes(targetDateStr)) {
+                if (cardDate && cardDate.includes(targetDateStr)) {
                     card.style.display = 'block';
                 } else {
                     card.style.display = 'none';
@@ -459,32 +469,40 @@
         }
 
         function clearDateFilter() {
-            document.getElementById('searchDate').value = '';
+            const sDate = document.getElementById('searchDate');
+            if (sDate) sDate.value = '';
             const cards = document.querySelectorAll('.memo-card');
             cards.forEach(card => card.style.display = 'block');
         }
 
-        // 상/하단 용량 체크 동시 동적 제어 함수
+        // 실시간 용량 계산
         function calculateStorageSize() {
             database.ref('memos').once('value', (snapshot) => {
                 const str = JSON.stringify(snapshot.val() || {});
                 const bytes = new Blob([str]).size;
                 const megaBytes = (bytes / (1024 * 1024)).toFixed(2);
                 
-                document.getElementById('topStorageText').innerText = `${megaBytes} MB`;
-                const percent = Math.min((megaBytes / 5000) * 100, 100) || 0.1;
-                document.getElementById('storageBar').style.width = `${percent}%`;
+                const topTxt = document.getElementById('topStorageText');
+                const barFill = document.getElementById('storageBar');
+                const botTxt = document.getElementById('bottomStorageText');
 
-                document.getElementById('bottomStorageText').innerText = `${megaBytes} MB`;
+                if (topTxt) topTxt.innerText = `${megaBytes} MB`;
+                if (barFill) {
+                    const percent = Math.min((megaBytes / 5000) * 100, 100) || 0.1;
+                    barFill.style.width = `${percent}%`;
+                }
+                if (botTxt) botTxt.innerText = `${megaBytes} MB`;
             });
         }
 
         // Ctrl + Enter 제출 바인딩
-        document.getElementById('memoText').addEventListener('keydown', function(e) {
-            if (e.ctrlKey && e.key === 'Enter') {
-                handleMemoSubmit();
-            }
-        });
+        if (textElem) {
+            textElem.addEventListener('keydown', function(e) {
+                if (e.ctrlKey && e.key === 'Enter') {
+                    handleMemoSubmit();
+                }
+            });
+        }
     </script>
 </body>
 </html>
