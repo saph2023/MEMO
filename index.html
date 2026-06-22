@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>우리 가족 메모장</title>
     
+    <!-- 파이어베이스 컴팩트 라이브러리 -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
@@ -36,7 +37,7 @@
             border-radius: 8px;
             box-sizing: border-box;
             z-index: 9999;
-            width: 280px;
+            width: 320px; /* 문구가 길어져서 가로 폭을 살짝 넓혔습니다 */
         }
         .storage-flex-container {
             display: flex;
@@ -46,12 +47,14 @@
         .storage-text-row {
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start; /* 문구 줄바꿈 시 정렬을 위해 수정 */
+            gap: 10px;
         }
         .storage-text-row span {
             font-size: 12px;
             color: #aaa;
             font-weight: bold;
+            line-height: 1.4;
         }
         .progress-container {
             width: 100%;
@@ -82,6 +85,8 @@
             font-size: 11px;
             cursor: pointer;
             text-decoration: underline;
+            white-space: nowrap;
+            margin-top: 2px;
         }
         .refresh-btn:hover {
             color: #aaa;
@@ -470,10 +475,11 @@
 </head>
 <body>
 
+<!-- 📊 서버 용량 헤더 (요청하신 경고 문구 반영 완료) -->
 <div class="fixed-storage-header" id="fixedStorageHeader">
     <div class="storage-flex-container">
         <div class="storage-text-row">
-            <span>📊 서버 용량이 5기가를 넘으면 돈을 내야함 (5GB)</span>
+            <span>📊 서버 용량 5기가 넘으면 돈내야 됨 조심<br>(5GB)</span>
             <button onclick="checkStorageUsage()" class="refresh-btn">새로고침</button>
         </div>
         <div class="progress-container">
@@ -485,6 +491,7 @@
     </div>
 </div>
 
+<!-- 📅 달력 검색 사이드바 -->
 <div class="fixed-calendar-sidebar" id="fixedCalendarSidebar">
     <div class="calendar-sidebar-title">
         <span>📅 날짜별 작업 검색</span>
@@ -496,6 +503,7 @@
 
 <div class="main-wrapper">
 
+    <!-- [화면 1] 로그인 선택 화면 -->
     <div class="login-container" id="loginScreen">
         <h1>우리 가족 메모장 로그인</h1>
         <div class="subtitle">사용하실 프로필을 선택해 주세요.</div>
@@ -520,6 +528,7 @@
         </div>
     </div>
 
+    <!-- [화면 2] 메모장 본문 -->
     <div class="memo-container" id="memoScreen">
         <h2 class="welcome-title" id="welcomeMessage">❤️ 가족 메모장</h2>
         <p style="color: #aaa; margin-bottom: 20px;">우리 가족이 함께 공유하는 실시간 공간입니다.</p>
@@ -536,6 +545,7 @@
             <button id="submitBtn" onclick="saveMemo()">메모 등록하기</button>
         </div>
 
+        <!-- 메모 출력 리스트 -->
         <div class="memo-list" id="memoListArea">
             <div class="no-memo">아직 작성된 메모가 없습니다.</div>
         </div>
@@ -543,6 +553,7 @@
 
 </div>
 
+<!-- 🛠️ 내용/날짜 수정 모달 구조 -->
 <div class="custom-edit-modal" id="customEditModal">
     <div class="modal-content-box">
         <h3>🛠️ 메모 내용 / 작업 일자 수정</h3>
@@ -571,7 +582,7 @@
     const database = firebase.database();
     const storage = firebase.storage();
 
-    // 💬 카카오 API 세팅 (전달해주신 발급 키 매핑)
+    // 💬 카카오 API 세팅
     const KAKAO_REST_API_KEY = "c498da63c4b3aa46c6618d9e63d5a57c";
 
     let currentWriter = ""; 
@@ -706,7 +717,6 @@
 
     // 💬 카카오 API 메시지 발송 함수
     function sendKakaoNotification(writer, contentText) {
-        // 메시지 본문 가공 (긴 경우 생략 처리)
         let previewText = contentText.substring(0, 50);
         if (contentText.length > 50) previewText += "...";
         if (!previewText && pastedFile) previewText = "[📸 사진 파일이 첨부되었습니다]";
@@ -721,7 +731,6 @@
             button_title: "메모장 열기"
         };
 
-        // 카카오 API 비동기 전송
         fetch("https://kapi.kakao.com/v2/api/talk/memo/default/send", {
             method: "POST",
             headers: {
