@@ -221,7 +221,7 @@
             margin-bottom: 5px;
         }
         
-        /* 🛠️ [수정] 여러 줄 입력용 테두리 박스 및 textarea 양식 스타일 */
+        /* 여러 줄 입력용 테두리 박스 및 textarea 양식 스타일 */
         .input-box {
             display: flex;
             flex-direction: column;
@@ -239,8 +239,8 @@
             color: white;
             font-size: 16px;
             font-family: 'Noto Sans KR', sans-serif;
-            resize: vertical; /* 사용자가 아래로 크기를 조절할 수 있게 허용 */
-            min-height: 100px; /* 기본 세로 높이 */
+            resize: vertical;
+            min-height: 100px;
             line-height: 1.5;
             outline: none;
         }
@@ -310,7 +310,7 @@
         .memo-text {
             font-size: 16px;
             word-break: break-all;
-            white-space: pre-wrap; /* 서버에서 엔터값을 줄바꿈으로 인식해 그리는 핵심 설정 */
+            white-space: pre-wrap;
             line-height: 1.5;
         }
         
@@ -372,6 +372,87 @@
             margin-top: 80px;
         }
 
+        /* 🛠️ [신규] 여러 줄 줄바꿈 전용 수정 창(모달 팝업) 레이아웃 스타일 */
+        .custom-edit-modal {
+            display: none; /* 평소엔 숨김 */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.75);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content-box {
+            background-color: #222;
+            border: 1px solid #444;
+            padding: 25px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+            box-sizing: border-box;
+            text-align: left;
+        }
+        .modal-content-box h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 18px;
+            color: #ff6b6b;
+        }
+        .modal-field-label {
+            font-size: 13px;
+            color: #aaa;
+            margin-bottom: 6px;
+            font-weight: bold;
+        }
+        .modal-content-box textarea {
+            width: 100%;
+            height: 120px;
+            background-color: #333;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 6px;
+            padding: 12px;
+            box-sizing: border-box;
+            font-family: 'Noto Sans KR', sans-serif;
+            font-size: 15px;
+            line-height: 1.5;
+            resize: vertical;
+            outline: none;
+            margin-bottom: 15px;
+        }
+        .modal-content-box input[type="date"] {
+            width: 100%;
+            background-color: #333;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 6px;
+            padding: 10px;
+            box-sizing: border-box;
+            font-size: 15px;
+            outline: none;
+            margin-bottom: 20px;
+        }
+        .modal-btn-row {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .modal-btn {
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+        }
+        .modal-btn-confirm { background-color: #e50914; color: white; }
+        .modal-btn-confirm:hover { background-color: #b81d24; }
+        .modal-btn-cancel { background-color: #444; color: #ccc; }
+        .modal-btn-cancel:hover { background-color: #555; color: white; }
+
         /* 화면이 좁은 모바일일 때 사이드바 처리 */
         @media (max-width: 1200px) {
             body {
@@ -396,7 +477,7 @@
 <div class="fixed-storage-header" id="fixedStorageHeader">
     <div class="storage-flex-container">
         <div class="storage-text-row">
-            <span>📊 서버 용량 (5GB)</span>
+            <span>📊 서버 용량 5기가 넘으면 돈내야 됨 조심 (5GB)</span>
             <button onclick="checkStorageUsage()" class="refresh-btn">새로고침</button>
         </div>
         <div class="progress-container">
@@ -466,6 +547,23 @@
 
 </div>
 
+<div class="custom-edit-modal" id="customEditModal">
+    <div class="modal-content-box">
+        <h3>🛠️ 메모 내용 / 작업 일자 수정</h3>
+        
+        <div class="modal-field-label">메모 내용 (엔터 줄바꿈 가능)</div>
+        <textarea id="modalEditTextarea"></textarea>
+        
+        <div class="modal-field-label">작업 날짜 변경</div>
+        <input type="date" id="modalEditDateInput">
+        
+        <div class="modal-btn-row">
+            <button class="modal-btn modal-btn-cancel" onclick="closeEditModal()">취소</button>
+            <button class="modal-btn modal-btn-confirm" id="modalConfirmBtn">수정 완료</button>
+        </div>
+    </div>
+</div>
+
 <script>
     // 🔗 파이어베이스 연결 정보 세팅
     const firebaseConfig = {
@@ -480,6 +578,10 @@
     let currentWriter = ""; 
     let pastedFile = null; 
     let selectedFilterDate = ""; 
+    
+    // 수정을 추적하기 위한 임시 변수 모음
+    let editingKey = "";
+    let editingOldTimestamp = 0;
 
     // 🔒 지정 비밀번호 매칭 (Z1234이름@)
     function enterMemoApp(name) {
@@ -513,11 +615,10 @@
         checkStorageUsage(); 
     }
 
-    // ⌨️ [신규] 입력창 키보드 감지 (Ctrl + Enter를 누르면 마우스 클릭 없이 바로 등록)
     function handleKeyDown(event) {
         if (event.ctrlKey && event.key === 'Enter') {
-            event.preventDefault(); // 기본 개행 방지
-            saveMemo(); // 등록 실행
+            event.preventDefault(); 
+            saveMemo(); 
         }
     }
 
@@ -623,7 +724,6 @@
         Object.keys(data).forEach((key) => {
             const memo = data[key];
             
-            // 📅 날짜 계산 및 달력 필터 검사
             const memoDateObj = new Date(memo.timestamp);
             const yyyy = memoDateObj.getFullYear();
             const mm = String(memoDateObj.getMonth() + 1).padStart(2, '0');
@@ -654,7 +754,7 @@
                 ${imgTag}
                 <div class="memo-info-line">
                     <span id="time-${key}">${finalTimeText}</span>
-                    <button class="edit-action-btn" onclick="editMemo('${key}', '${memo.writer}', ${memo.timestamp})">🛠️ 내용/날짜 수정</button>
+                    <button class="edit-action-btn" onclick="openEditModal('${key}', '${memo.writer}', ${memo.timestamp})">🛠️ 내용/날짜 수정</button>
                 </div>
             `;
             
@@ -684,7 +784,6 @@
         });
     }
 
-    // 📅 [달력 기능] 전체보기로 리셋
     function clearDateFilter() {
         selectedFilterDate = "";
         document.getElementById('calendarFilterInput').value = "";
@@ -695,24 +794,50 @@
         });
     }
 
-    // 🛠️ [내용/날짜 수정 기능] 본인 검증 후 원격 DB 즉시 업데이트
-    function editMemo(key, writerName, oldTimestamp) {
+    /* 🛠️ [신규 수정 로직] 모달 팝업 오픈 연동 */
+    function openEditModal(key, writerName, timestamp) {
         if (currentWriter !== writerName) {
             alert("본인이 작성한 메모만 수정할 수 있습니다.");
             return;
         }
 
+        editingKey = key;
+        editingOldTimestamp = timestamp;
+
+        // 기존 텍스트 추출 및 모달 내부 입력창 세팅 (엔터값 완벽 이식)
         const currentText = document.getElementById(`text-${key}`).innerText;
-        const newText = prompt("수정할 메모 내용을 입력하세요:", currentText);
-        if (newText === null) return; 
+        document.getElementById('modalEditTextarea').value = currentText;
 
-        const oldDate = new Date(oldTimestamp);
-        const defaultDateStr = `${oldDate.getFullYear()}-${String(oldDate.getMonth() + 1).padStart(2, '0')}-${String(oldDate.getDate()).padStart(2, '0')}`;
-        const newDateStr = prompt("작업 날짜를 변경하시겠습니까? (형식: YYYY-MM-DD)", defaultDateStr);
-        
-        let finalTimestamp = oldTimestamp;
+        // 기존 날짜 세팅
+        const oldDate = new Date(timestamp);
+        const dateStr = `${oldDate.getFullYear()}-${String(oldDate.getMonth() + 1).padStart(2, '0')}-${String(oldDate.getDate()).padStart(2, '0')}`;
+        document.getElementById('modalEditDateInput').value = dateStr;
 
-        if (newDateStr && newDateStr !== defaultDateStr) {
+        // 모달창 띄우기
+        document.getElementById('customEditModal').style.display = 'flex';
+    }
+
+    function closeEditModal() {
+        document.getElementById('customEditModal').style.display = 'none';
+        editingKey = "";
+    }
+
+    // 🛠️ [신규 수정 로직] 모달 내에서 수정 완료 처리 클릭 시 원격 저장 실행
+    document.getElementById('modalConfirmBtn').onclick = function() {
+        if (!editingKey) return;
+
+        const newText = document.getElementById('modalEditTextarea').value;
+        const newDateStr = document.getElementById('modalEditDateInput').value;
+
+        if (newText.trim() === "") {
+            alert("내용을 공백으로 수정할 수 없습니다.");
+            return;
+        }
+
+        const oldDate = new Date(editingOldTimestamp);
+        let finalTimestamp = editingOldTimestamp;
+
+        if (newDateStr) {
             const dateParts = newDateStr.split('-');
             if (dateParts.length === 3) {
                 const parsedDate = new Date(
@@ -725,23 +850,20 @@
                 );
                 if (!isNaN(parsedDate.getTime())) {
                     finalTimestamp = parsedDate.getTime();
-                } else {
-                    alert("날짜 형식이 올바르지 않아 기존 날짜로 유지됩니다.");
                 }
-            } else {
-                alert("날짜 형식이 올바르지 않아 기존 날짜로 유지됩니다.");
             }
         }
 
-        database.ref('memos/' + key).update({
-            content: newText.trim(),
+        // 파이어베이스 원격 데이터 업데이트
+        database.ref('memos/' + editingKey).update({
+            content: newText,
             timestamp: finalTimestamp
         }).then(() => {
-            alert("메모 내용 및 날짜 수정이 정상 반영되었습니다.");
+            closeEditModal();
         }).catch((error) => {
             alert("수정 실패: " + error.message);
         });
-    }
+    };
 
     // 🔒 본인 글만 삭제 검증 + 스토리지 연동 이미지 삭제
     function deleteMemo(key, writerName, storageFileName) {
