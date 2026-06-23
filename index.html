@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>우리 가족 메모장</title>
     
-    <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"></script>
-
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
@@ -292,16 +290,6 @@
             background-color: #b81d24;
         }
 
-        /* 🟡 카카오 로그인인증 노란 버튼 스타일 */
-        .btn-k-auth {
-            background-color: #fee500 !important;
-            color: #191919 !important;
-            padding: 12px !important;
-            font-size: 14px !important;
-            margin-top: 5px;
-            display: none;
-        }
-
         /* 메모 리스트 */
         .memo-list {
             background-color: #222;
@@ -550,8 +538,6 @@
             </div>
 
             <button id="submitBtn" onclick="saveMemo()">메모 등록하기</button>
-            
-            <button id="kakaoAuthBtn" class="btn-k-auth" onclick="loginWithKakao()">💬 카카오 알림 전송 권한 인증하기</button>
         </div>
 
         <div class="memo-list" id="memoListArea">
@@ -579,7 +565,7 @@
 </div>
 
 <script>
-    // 🔗 파이어베이스 데이터베이스 설정 (싱가포르 전용 리전 주소 반영 완료)
+    // 🔗 파이어베이스 데이터베이스 설정
     const firebaseConfig = {
         databaseURL: "https://saph2023-default-rtdb.asia-southeast1.firebasedatabase.app/",
         storageBucket: "saph2023.appspot.com"
@@ -589,45 +575,12 @@
     const database = firebase.database();
     const storage = firebase.storage();
 
-    // 💬 카카오 정식 SDK 초기화 및 토큰 점검
-    try {
-        if (typeof Kakao !== 'undefined' && !Kakao.isInitialized()) {
-            Kakao.init('bfc4502483d1a36707fa47c6d59db619');
-            checkKakaoToken();
-        }
-    } catch (e) { console.error('카카오 SDK 초기화 실패:', e); }
-
     let currentWriter = ""; 
     let pastedFile = null; 
     let selectedFilterDate = ""; 
     
     let editingKey = "";
     let editingOldTimestamp = 0;
-
-    // 카카오 로그인 토큰 유무 확인 함수
-    function checkKakaoToken() {
-        const authBtn = document.getElementById('kakaoAuthBtn');
-        if (Kakao.Auth.getAccessToken()) {
-            if(authBtn) authBtn.style.display = 'none';
-        } else {
-            if(authBtn) authBtn.style.display = 'block';
-        }
-    }
-
-    // 카카오 인증용 팝업 연동 함수
-    function loginWithKakao() {
-        Kakao.Auth.login({
-            scope: 'talk_message', // 나에게 보내기 기능 필수 권한
-            success: function(authObj) {
-                alert('카카오 인증 성공! 이제 메모 등록 시 알림이 전송됩니다.');
-                checkKakaoToken();
-            },
-            fail: function(err) {
-                alert('카카오 인증에 실패했습니다.');
-                console.error(err);
-            }
-        });
-    }
 
     // 🔒 암호 인증 로직 (원본 동일)
     function enterMemoApp(name) {
@@ -659,7 +612,6 @@
         
         loadMemos();
         checkStorageUsage();
-        checkKakaoToken(); // 로그인 성공 시 버튼 노출 여부 판단
     }
 
     function handleKeyDown(event) {
@@ -738,8 +690,8 @@
             storageFileName: fileName, 
             timestamp: Date.now()
         }).then(() => {
-            // 💬 토큰 가드 체크 후 카카오 알림 정식 발송 요청
-            sendKakaoNotification(currentWriter, text);
+            // 🚀 IP 차단이 아예 존재하지 않는 강력한 텔레그램 알림 시스템 작동
+            sendTelegramNotification(currentWriter, text);
 
             memoInput.value = "";
             clearPreview(); 
@@ -753,41 +705,28 @@
         });
     }
 
-    // 💬 카카오 정식 SDK 기반의 메시지 샌더 함수 (401 차단벽 무력화)
-    function sendKakaoNotification(writer, contentText) {
-        let previewText = contentText.substring(0, 50);
-        if (contentText.length > 50) previewText += "...";
-        if (!previewText && pastedFile) previewText = "[📸 사진 파일이 첨부되었습니다]";
+    // 🚀 텔레그램 정식 알림 발송 시스템 (토큰/IP 차단 원천 해결)
+    function sendTelegramNotification(writer, contentText) {
+        const BOT_TOKEN = "6413284705:AAElX_Oq3rNfUclFhCWh6YV2G9nK0U3M7eY";
+        const CHAT_ID = "6798235411";
 
-        if (!Kakao.Auth.getAccessToken()) {
-            console.warn("카카오 인증 토큰 유실 상태. 사용자 수동 인증 대기.");
-            document.getElementById('kakaoAuthBtn').style.display = 'block';
-            return;
-        }
+        let previewText = contentText.substring(0, 80);
+        if (contentText.length > 80) previewText += "...";
+        if (!previewText && pastedFile) previewText = "[📸 사진 파일 첨부]";
 
-        Kakao.API.request({
-            url: '/v2/api/talk/memo/default/send',
-            data: {
-                template_object: {
-                    object_type: "text",
-                    text: `[가족메모장] 📌 ${writer}님이 새 글을 등록했습니다.\n\n내용: ${previewText}`,
-                    link: {
-                        web_url: window.location.href,
-                        mobile_web_url: window.location.href
-                    },
-                    button_title: "메모장 보기"
-                }
-            },
-            success: function(res) {
-                console.log("카카오 알림 정상 송신 완료:", res);
-            },
-            fail: function(err) {
-                console.error("카카오 발송 실패 에러코드 보정:", err);
-                if(err.code === -401) {
-                    document.getElementById('kakaoAuthBtn').style.display = 'block';
-                }
-            }
-        });
+        const messageText = `[📌 가족메모장 알림]\n작성자: ${writer}\n\n내용:\n${previewText}`;
+
+        fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                chat_id: CHAT_ID,
+                text: messageText
+            })
+        })
+        .then(res => res.json())
+        .then(data => console.log("텔레그램 알림 발송 성공", data))
+        .catch(err => console.error("텔레그램 발송 실패", err));
     }
 
     function loadMemos() {
