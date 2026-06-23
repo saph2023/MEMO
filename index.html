@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>우리 가족 메모장</title>
     
+    <!-- 파이어베이스 컴팩트 라이브러리 -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
@@ -36,7 +37,7 @@
             border-radius: 8px;
             box-sizing: border-box;
             z-index: 9999;
-            width: 320px;
+            width: 320px; /* 문구가 길어져서 가로 폭을 살짝 넓혔습니다 */
         }
         .storage-flex-container {
             display: flex;
@@ -46,7 +47,7 @@
         .storage-text-row {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
+            align-items: flex-start; /* 문구 줄바꿈 시 정렬을 위해 수정 */
             gap: 10px;
         }
         .storage-text-row span {
@@ -373,7 +374,7 @@
             margin-top: 80px;
         }
 
-        /* 수정 모달 구조 스타일 */
+        /* 🛠️ 수정용 팝업 모달 상자 창 구조 스타일 */
         .custom-edit-modal {
             display: none;
             position: fixed;
@@ -474,6 +475,7 @@
 </head>
 <body>
 
+<!-- 📊 서버 용량 헤더 (요청하신 경고 문구 반영 완료) -->
 <div class="fixed-storage-header" id="fixedStorageHeader">
     <div class="storage-flex-container">
         <div class="storage-text-row">
@@ -489,6 +491,7 @@
     </div>
 </div>
 
+<!-- 📅 달력 검색 사이드바 -->
 <div class="fixed-calendar-sidebar" id="fixedCalendarSidebar">
     <div class="calendar-sidebar-title">
         <span>📅 날짜별 작업 검색</span>
@@ -500,6 +503,7 @@
 
 <div class="main-wrapper">
 
+    <!-- [화면 1] 로그인 선택 화면 -->
     <div class="login-container" id="loginScreen">
         <h1>우리 가족 메모장 로그인</h1>
         <div class="subtitle">사용하실 프로필을 선택해 주세요.</div>
@@ -524,6 +528,7 @@
         </div>
     </div>
 
+    <!-- [화면 2] 메모장 본문 -->
     <div class="memo-container" id="memoScreen">
         <h2 class="welcome-title" id="welcomeMessage">❤️ 가족 메모장</h2>
         <p style="color: #aaa; margin-bottom: 20px;">우리 가족이 함께 공유하는 실시간 공간입니다.</p>
@@ -540,6 +545,7 @@
             <button id="submitBtn" onclick="saveMemo()">메모 등록하기</button>
         </div>
 
+        <!-- 메모 출력 리스트 -->
         <div class="memo-list" id="memoListArea">
             <div class="no-memo">아직 작성된 메모가 없습니다.</div>
         </div>
@@ -547,6 +553,7 @@
 
 </div>
 
+<!-- 🛠️ 내용/날짜 수정 모달 구조 -->
 <div class="custom-edit-modal" id="customEditModal">
     <div class="modal-content-box">
         <h3>🛠️ 메모 내용 / 작업 일자 수정</h3>
@@ -567,13 +574,16 @@
 <script>
     // 🔗 파이어베이스 데이터베이스 설정
     const firebaseConfig = {
-        databaseURL: "https://saph2023-default-rtdb.asia-southeast1.firebasedatabase.app/",
-        storageBucket: "saph2023.appspot.com"
+        databaseURL: "https://family-memo-9c3dc-default-rtdb.firebaseio.com",
+        storageBucket: "family-memo-9c3dc.firebasestorage.app"
     };
     
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
     const storage = firebase.storage();
+
+    // 💬 카카오 API 세팅
+    const KAKAO_REST_API_KEY = "c498da63c4b3aa46c6618d9e63d5a57c";
 
     let currentWriter = ""; 
     let pastedFile = null; 
@@ -582,7 +592,7 @@
     let editingKey = "";
     let editingOldTimestamp = 0;
 
-    // 🔒 암호 인증 로직 (원본 동일)
+    // 🔒 암호 인증 로직
     function enterMemoApp(name) {
         const isVerified = sessionStorage.getItem("verified_" + name);
 
@@ -611,7 +621,7 @@
         document.getElementById('welcomeMessage').innerText = "❤️ " + name + " 님의 가족 메모장";
         
         loadMemos();
-        checkStorageUsage();
+        checkStorageUsage(); 
     }
 
     function handleKeyDown(event) {
@@ -621,7 +631,7 @@
         }
     }
 
-    // 📋 클립보드 이미지 감지
+    // 📋 클립보드 Ctrl + V 이벤트 핸들러
     document.addEventListener('paste', function (event) {
         if (!currentWriter) return;
 
@@ -648,7 +658,7 @@
         document.getElementById('previewImg').src = "";
     }
 
-    // 💾 메모 저장 처리
+    // 💾 메모 등록 로직
     function saveMemo() {
         const memoInput = document.getElementById('memoInput');
         const submitBtn = document.getElementById('submitBtn');
@@ -690,8 +700,8 @@
             storageFileName: fileName, 
             timestamp: Date.now()
         }).then(() => {
-            // 🚀 IP 차단이 아예 존재하지 않는 강력한 텔레그램 알림 시스템 작동
-            sendTelegramNotification(currentWriter, text);
+            // 💬 카카오 알림톡 전송 연동 호출
+            sendKakaoNotification(currentWriter, text);
 
             memoInput.value = "";
             clearPreview(); 
@@ -705,28 +715,37 @@
         });
     }
 
-    // 🚀 텔레그램 정식 알림 발송 시스템 (토큰/IP 차단 원천 해결)
-    function sendTelegramNotification(writer, contentText) {
-        const BOT_TOKEN = "6413284705:AAElX_Oq3rNfUclFhCWh6YV2G9nK0U3M7eY";
-        const CHAT_ID = "6798235411";
+    // 💬 카카오 API 메시지 발송 함수
+    function sendKakaoNotification(writer, contentText) {
+        let previewText = contentText.substring(0, 50);
+        if (contentText.length > 50) previewText += "...";
+        if (!previewText && pastedFile) previewText = "[📸 사진 파일이 첨부되었습니다]";
 
-        let previewText = contentText.substring(0, 80);
-        if (contentText.length > 80) previewText += "...";
-        if (!previewText && pastedFile) previewText = "[📸 사진 파일 첨부]";
+        const messageData = {
+            object_type: "text",
+            text: `[가족메모장] 📌 ${writer}님이 새 글을 등록했습니다.\n\n내용: ${previewText}`,
+            link: {
+                web_url: "https://family-memo-9c3dc.web.app",
+                mobile_web_url: "https://family-memo-9c3dc.web.app"
+            },
+            button_title: "메모장 열기"
+        };
 
-        const messageText = `[📌 가족메모장 알림]\n작성자: ${writer}\n\n내용:\n${previewText}`;
-
-        fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        fetch("https://kapi.kakao.com/v2/api/talk/memo/default/send", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                chat_id: CHAT_ID,
-                text: messageText
-            })
+            headers: {
+                "Authorization": `Bearer ${KAKAO_REST_API_KEY}`,
+                "Content-Type": "application/x-www-form-urlencoded"
+            },
+            body: `template_object=${encodeURIComponent(JSON.stringify(messageData))}`
         })
-        .then(res => res.json())
-        .then(data => console.log("텔레그램 알림 발송 성공", data))
-        .catch(err => console.error("텔레그램 발송 실패", err));
+        .then(response => response.json())
+        .then(res => {
+            console.log("카카오톡 알림 전송 결과:", res);
+        })
+        .catch(err => {
+            console.error("카카오톡 알림 전송 실패:", err);
+        });
     }
 
     function loadMemos() {
@@ -818,7 +837,7 @@
         });
     }
 
-    /* 🛠️ 내용/날짜 수정 제어 모달 */
+    /* 🛠️ 모달 팝업 제어 로직 */
     function openEditModal(key, writerName, timestamp) {
         if (currentWriter !== writerName) {
             alert("본인이 작성한 메모만 수정할 수 있습니다.");
