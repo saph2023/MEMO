@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>우리 가족 메모장</title>
     
-    <!-- 파이어베이스 컴팩트 라이브러리 -->
+    <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"></script>
+
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
@@ -24,7 +25,7 @@
             box-sizing: border-box;
         }
         
-        /* 📊 스토리지 바 */
+        /* 📊 스토리지 바 (원본 스타일 유지) */
         .fixed-storage-header {
             display: none;
             position: fixed;
@@ -37,7 +38,7 @@
             border-radius: 8px;
             box-sizing: border-box;
             z-index: 9999;
-            width: 320px; /* 문구가 길어져서 가로 폭을 살짝 넓혔습니다 */
+            width: 320px;
         }
         .storage-flex-container {
             display: flex;
@@ -47,7 +48,7 @@
         .storage-text-row {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start; /* 문구 줄바꿈 시 정렬을 위해 수정 */
+            align-items: flex-start;
             gap: 10px;
         }
         .storage-text-row span {
@@ -92,7 +93,7 @@
             color: #aaa;
         }
 
-        /* 📅 날짜별 작업 검색 달력 */
+        /* 📅 날짜별 작업 검색 달력 (원본 스타일 유지) */
         .fixed-calendar-sidebar {
             display: none;
             position: fixed;
@@ -291,6 +292,16 @@
             background-color: #b81d24;
         }
 
+        /* 🟡 카카오 로그인인증 간이 버튼 스타일 추가 */
+        .btn-k-auth {
+            background-color: #fee500 !important;
+            color: #191919 !important;
+            padding: 10px !important;
+            font-size: 13px !important;
+            margin-top: -5px;
+            display: none;
+        }
+
         /* 메모 리스트 */
         .memo-list {
             background-color: #222;
@@ -374,7 +385,7 @@
             margin-top: 80px;
         }
 
-        /* 🛠️ 수정용 팝업 모달 상자 창 구조 스타일 */
+        /* 수정 모달 구조 스타일 */
         .custom-edit-modal {
             display: none;
             position: fixed;
@@ -475,7 +486,6 @@
 </head>
 <body>
 
-<!-- 📊 서버 용량 헤더 (요청하신 경고 문구 반영 완료) -->
 <div class="fixed-storage-header" id="fixedStorageHeader">
     <div class="storage-flex-container">
         <div class="storage-text-row">
@@ -491,7 +501,6 @@
     </div>
 </div>
 
-<!-- 📅 달력 검색 사이드바 -->
 <div class="fixed-calendar-sidebar" id="fixedCalendarSidebar">
     <div class="calendar-sidebar-title">
         <span>📅 날짜별 작업 검색</span>
@@ -503,7 +512,6 @@
 
 <div class="main-wrapper">
 
-    <!-- [화면 1] 로그인 선택 화면 -->
     <div class="login-container" id="loginScreen">
         <h1>우리 가족 메모장 로그인</h1>
         <div class="subtitle">사용하실 프로필을 선택해 주세요.</div>
@@ -528,7 +536,6 @@
         </div>
     </div>
 
-    <!-- [화면 2] 메모장 본문 -->
     <div class="memo-container" id="memoScreen">
         <h2 class="welcome-title" id="welcomeMessage">❤️ 가족 메모장</h2>
         <p style="color: #aaa; margin-bottom: 20px;">우리 가족이 함께 공유하는 실시간 공간입니다.</p>
@@ -543,9 +550,9 @@
             </div>
 
             <button id="submitBtn" onclick="saveMemo()">메모 등록하기</button>
+            <button id="kakaoAuthBtn" class="btn-k-auth" onclick="loginWithKakao()">💬 카카오톡 알림 전송 권한 다시 인증하기</button>
         </div>
 
-        <!-- 메모 출력 리스트 -->
         <div class="memo-list" id="memoListArea">
             <div class="no-memo">아직 작성된 메모가 없습니다.</div>
         </div>
@@ -553,7 +560,6 @@
 
 </div>
 
-<!-- 🛠️ 내용/날짜 수정 모달 구조 -->
 <div class="custom-edit-modal" id="customEditModal">
     <div class="modal-content-box">
         <h3>🛠️ 메모 내용 / 작업 일자 수정</h3>
@@ -572,18 +578,23 @@
 </div>
 
 <script>
-    // 🔗 파이어베이스 데이터베이스 설정
+    // 🔗 파이어베이스 데이터베이스 설정 (싱가포르 전용 리전 주소 반영)
     const firebaseConfig = {
-        databaseURL: "https://family-memo-9c3dc-default-rtdb.firebaseio.com",
-        storageBucket: "family-memo-9c3dc.firebasestorage.app"
+        databaseURL: "https://saph2023-default-rtdb.asia-southeast1.firebasedatabase.app/",
+        storageBucket: "saph2023.appspot.com"
     };
     
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
     const storage = firebase.storage();
 
-    // 💬 카카오 API 세팅
-    const KAKAO_REST_API_KEY = "c498da63c4b3aa46c6618d9e63d5a57c";
+    // 💬 카카오 정식 SDK 초기화 (401 에러 원천 차단용)
+    try {
+        if (typeof Kakao !== 'undefined' && !Kakao.isInitialized()) {
+            Kakao.init('bfc4502483d1a36707fa47c6d59db619');
+            checkKakaoToken();
+        }
+    } catch (e) { console.error('카카오 SDK 초기화 실패:', e); }
 
     let currentWriter = ""; 
     let pastedFile = null; 
@@ -592,7 +603,32 @@
     let editingKey = "";
     let editingOldTimestamp = 0;
 
-    // 🔒 암호 인증 로직
+    // 카카오 로그인 상태 체크 및 버튼 제어 함수
+    function checkKakaoToken() {
+        const authBtn = document.getElementById('kakaoAuthBtn');
+        if (Kakao.Auth.getAccessToken()) {
+            if(authBtn) authBtn.style.display = 'none';
+        } else {
+            if(authBtn) authBtn.style.display = 'block';
+        }
+    }
+
+    // 카카오 토큰 재발급을 위한 팝업 함수
+    function loginWithKakao() {
+        Kakao.Auth.login({
+            scope: 'talk_message',
+            success: function(authObj) {
+                alert('카카오 인증 완료! 이제 알림이 정상 전송됩니다.');
+                checkKakaoToken();
+            },
+            fail: function(err) {
+                alert('카카오 인증에 실패했습니다.');
+                console.error(err);
+            }
+        });
+    }
+
+    // 🔒 암호 인증 로직 (원본 완벽 일치)
     function enterMemoApp(name) {
         const isVerified = sessionStorage.getItem("verified_" + name);
 
@@ -621,7 +657,8 @@
         document.getElementById('welcomeMessage').innerText = "❤️ " + name + " 님의 가족 메모장";
         
         loadMemos();
-        checkStorageUsage(); 
+        checkStorageUsage();
+        checkKakaoToken();
     }
 
     function handleKeyDown(event) {
@@ -700,7 +737,7 @@
             storageFileName: fileName, 
             timestamp: Date.now()
         }).then(() => {
-            // 💬 카카오 알림톡 전송 연동 호출
+            // 💬 안전한 카카오톡 알림 전송 호출
             sendKakaoNotification(currentWriter, text);
 
             memoInput.value = "";
@@ -715,36 +752,41 @@
         });
     }
 
-    // 💬 카카오 API 메시지 발송 함수
+    // 💬 카카오 API 안전 발송 제어 함수 (401 에러 철벽 방어)
     function sendKakaoNotification(writer, contentText) {
         let previewText = contentText.substring(0, 50);
         if (contentText.length > 50) previewText += "...";
         if (!previewText && pastedFile) previewText = "[📸 사진 파일이 첨부되었습니다]";
 
-        const messageData = {
-            object_type: "text",
-            text: `[가족메모장] 📌 ${writer}님이 새 글을 등록했습니다.\n\n내용: ${previewText}`,
-            link: {
-                web_url: "https://family-memo-9c3dc.web.app",
-                mobile_web_url: "https://family-memo-9c3dc.web.app"
-            },
-            button_title: "메모장 열기"
-        };
+        // 로그인 토큰 상태 가드 확인
+        if (!Kakao.Auth.getAccessToken()) {
+            console.warn("카카오 토큰이 부재하여 알림창을 띄웁니다.");
+            document.getElementById('kakaoAuthBtn').style.display = 'block';
+            return;
+        }
 
-        fetch("https://kapi.kakao.com/v2/api/talk/memo/default/send", {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${KAKAO_REST_API_KEY}`,
-                "Content-Type": "application/x-www-form-urlencoded"
+        Kakao.API.request({
+            url: '/v2/api/talk/memo/default/send',
+            data: {
+                template_object: {
+                    object_type: "text",
+                    text: `[가족메모장] 📌 ${writer}님이 새 글을 등록했습니다.\n\n내용: ${previewText}`,
+                    link: {
+                        web_url: window.location.href,
+                        mobile_web_url: window.location.href
+                    },
+                    button_title: "메모장 열기"
+                }
             },
-            body: `template_object=${encodeURIComponent(JSON.stringify(messageData))}`
-        })
-        .then(response => response.json())
-        .then(res => {
-            console.log("카카오톡 알림 전송 결과:", res);
-        })
-        .catch(err => {
-            console.error("카카오톡 알림 전송 실패:", err);
+            success: function(res) {
+                console.log("카카오톡 알림 전송 완료:", res);
+            },
+            fail: function(err) {
+                console.error("카카오톡 알림 발송 실패:", err);
+                if(err.code === -401) {
+                    document.getElementById('kakaoAuthBtn').style.display = 'block';
+                }
+            }
         });
     }
 
